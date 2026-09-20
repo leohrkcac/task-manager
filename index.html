@@ -481,6 +481,13 @@
       gap: 0.5rem;
     }
 
+    .task-import-hint {
+      margin: 0.5rem 0 0;
+      color: var(--text-dim);
+      font-size: 0.78rem;
+      line-height: 1.4;
+    }
+
     .filter-tabs {
       display: flex;
       gap: 0.25rem;
@@ -783,6 +790,82 @@
       border-top: 1px solid var(--border);
     }
 
+    .modal.modal-wide {
+      max-width: 560px;
+    }
+
+    .confirm-message {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.45;
+      margin: 0 0 0.25rem;
+      word-break: break-word;
+    }
+
+    .confirm-message strong {
+      color: var(--text);
+      font-weight: 650;
+    }
+
+    .audit-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: min(55vh, 420px);
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+    }
+
+    .audit-list li {
+      padding: 0.65rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+      line-height: 1.35;
+    }
+
+    .audit-list li:last-child { border-bottom: none; }
+
+    .audit-list .audit-time {
+      color: var(--text-dim);
+      font-size: 0.72rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .audit-list .audit-action {
+      font-weight: 650;
+      color: var(--accent);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+    }
+
+    .audit-list .audit-label {
+      color: var(--text);
+      margin-top: 0.15rem;
+    }
+
+    .audit-list .audit-details {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      margin-top: 0.2rem;
+      word-break: break-word;
+    }
+
+    .audit-empty {
+      padding: 1.25rem 0.75rem;
+      text-align: center;
+      color: var(--text-dim);
+      font-size: 0.85rem;
+    }
+
+    .audit-loading {
+      padding: 1rem;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+    }
+
     /* ── Mobile nav ── */
     .mobile-nav {
       display: none;
@@ -1070,6 +1153,155 @@
     .header-actions {
       align-items: center;
     }
+
+    .role-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.15rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      background: var(--bg-input);
+      white-space: nowrap;
+    }
+    .role-badge.super {
+      color: #f0c674;
+      border-color: rgba(240, 198, 116, 0.45);
+      background: rgba(240, 198, 116, 0.12);
+    }
+    .role-badge.member {
+      color: var(--text-dim);
+    }
+
+    .group-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 650;
+      color: var(--accent);
+      background: var(--accent-soft);
+      border: 1px solid rgba(91, 141, 239, 0.35);
+      max-width: 140px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    .admin-tabs {
+      display: flex;
+      gap: 0.35rem;
+      margin-bottom: 0.85rem;
+      flex-wrap: wrap;
+    }
+    .admin-tabs button {
+      padding: 0.35rem 0.7rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-input);
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    .admin-tabs button.active {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-color: rgba(91, 141, 239, 0.45);
+    }
+    .admin-section { display: none; }
+    .admin-section.active { display: block; }
+    .admin-row {
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 0.65rem;
+    }
+    .admin-row input, .admin-row select {
+      flex: 1;
+      min-width: 120px;
+      padding: 0.45rem 0.6rem;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .admin-list {
+      list-style: none;
+      margin: 0.5rem 0 0;
+      padding: 0;
+      max-height: 240px;
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+    }
+    .admin-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.55rem 0.7rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+    .admin-list li:last-child { border-bottom: none; }
+    .admin-list .meta { color: var(--text-dim); font-size: 0.72rem; }
+
+    .pending-delete-badge {
+      display: inline-block;
+      margin-left: 0.35rem;
+      padding: 0.05rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 650;
+      color: var(--warning);
+      background: var(--warning-soft);
+      vertical-align: middle;
+    }
+
+    .approvals-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      max-height: min(55vh, 420px);
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+    }
+    .approvals-list li {
+      padding: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      gap: 0.45rem;
+    }
+    .approvals-list li:last-child { border-bottom: none; }
+    .approvals-list .ap-meta {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+    }
+    .approvals-list .ap-label {
+      font-weight: 650;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .approvals-list .ap-type {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.75rem;
+      color: var(--accent);
+    }
+    .approvals-list .ap-actions {
+      display: flex;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -1173,10 +1405,20 @@
           <span class="dot" aria-hidden="true"></span>
           <span class="label">Connecting…</span>
         </span>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-audit-log" title="View your audit log">
+          Audit log
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-admin" title="Manage groups and departments" hidden>
+          Groups
+        </button>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-delete-approvals" title="Review pending delete requests" hidden>
+          Delete approvals
+        </button>
         <button type="button" class="btn btn-ghost btn-sm" id="btn-samples" title="Insert demo projects and tasks into Supabase">
           Add sample data
         </button>
         <div class="header-user" id="header-user" hidden>
+          <span class="role-badge member" id="user-role-badge" title="Your role">Member</span>
           <span class="user-email" id="user-email" title=""></span>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-signout" title="Sign out">Sign out</button>
         </div>
@@ -1228,6 +1470,82 @@
     </div>
   </div>
 
+  <!-- Confirm dialog -->
+  <div class="modal-backdrop" id="confirm-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="modal" id="confirm-modal">
+      <h3 id="confirm-title">Confirm</h3>
+      <p class="confirm-message" id="confirm-message"></p>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="confirm-cancel">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-ok">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Audit log -->
+  <div class="modal-backdrop" id="audit-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="audit-title">
+    <div class="modal modal-wide" id="audit-modal">
+      <h3 id="audit-title">Audit log</h3>
+      <div id="audit-body" class="audit-loading">Loading…</div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="audit-refresh">Refresh</button>
+        <button type="button" class="btn btn-primary" id="audit-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Groups / admin (super users) -->
+  <div class="modal-backdrop" id="admin-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="admin-title">
+    <div class="modal modal-wide" id="admin-modal">
+      <h3 id="admin-title">Groups &amp; departments</h3>
+      <div class="admin-tabs" role="tablist">
+        <button type="button" class="active" data-admin-tab="groups">Groups</button>
+        <button type="button" data-admin-tab="members">Members</button>
+        <button type="button" data-admin-tab="projects">Project assignment</button>
+      </div>
+      <div id="admin-panel-groups" class="admin-section active">
+        <div class="admin-row">
+          <input id="admin-group-name" maxlength="80" placeholder="Group name" />
+          <input id="admin-group-desc" maxlength="200" placeholder="Description (optional)" />
+          <button type="button" class="btn btn-primary btn-sm" id="admin-group-add">Create</button>
+        </div>
+        <ul class="admin-list" id="admin-groups-list"></ul>
+      </div>
+      <div id="admin-panel-members" class="admin-section">
+        <div class="admin-row">
+          <select id="admin-member-group"></select>
+          <input id="admin-member-email" type="email" maxlength="254" placeholder="User email" />
+          <button type="button" class="btn btn-primary btn-sm" id="admin-member-add">Assign</button>
+        </div>
+        <ul class="admin-list" id="admin-members-list"></ul>
+      </div>
+      <div id="admin-panel-projects" class="admin-section">
+        <div class="admin-row">
+          <select id="admin-project-pick"></select>
+          <select id="admin-project-group"></select>
+          <button type="button" class="btn btn-primary btn-sm" id="admin-project-save">Save</button>
+        </div>
+        <p class="meta" style="color:var(--text-dim);font-size:0.75rem;margin-top:0.35rem">Assign a project to a department. Members only see projects for groups they belong to.</p>
+        <ul class="admin-list" id="admin-projects-list"></ul>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-primary" id="admin-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete approvals (super users) -->
+  <div class="modal-backdrop" id="approvals-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="approvals-title">
+    <div class="modal modal-wide" id="approvals-modal">
+      <h3 id="approvals-title">Delete approvals</h3>
+      <div id="approvals-body" class="audit-loading">Loading…</div>
+      <div class="modal-actions">
+        <button type="button" class="btn btn-ghost" id="approvals-refresh">Refresh</button>
+        <button type="button" class="btn btn-primary" id="approvals-close">Close</button>
+      </div>
+    </div>
+  </div>
+
 <script>
 (function () {
   'use strict';
@@ -1251,6 +1569,19 @@
   let pendingOtpType = 'signup'; // signup | email
   let appBooted = false;
   let authListenerReady = false;
+  let userRole = 'member'; // 'super' | 'member'
+  /** @type {{ project: Set<string>, task: Set<string> }} */
+  let pendingDeleteIds = { project: new Set(), task: new Set() };
+  /** @type {{ id: string, name: string, description: string }[]} */
+  let groups = [];
+  /** @type {{ groupId: string, userId: string, email?: string }[]} */
+  let groupMembers = [];
+  /** @type {{ user_id: string, email: string, role: string }[]} */
+  let knownProfiles = [];
+
+  function isSuperUser() {
+    return userRole === 'super';
+  }
 
   function currentUserId() {
     return session?.user?.id || null;
@@ -1666,6 +1997,7 @@
       clientName: row.client_name || '',
       branch: row.branch || '',
       targetDate: row.target_date || '',
+      groupId: row.group_id || null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -1694,6 +2026,7 @@
       client_name: p.clientName || '',
       branch: p.branch || '',
       target_date: emptyToNull(p.targetDate),
+      group_id: p.groupId || null,
       updated_at: new Date().toISOString(),
     };
   }
@@ -1825,8 +2158,70 @@
     }
   }
 
+  function getGroup(id) {
+    return groups.find((g) => g.id === id) || null;
+  }
+
+  function groupName(id) {
+    const g = getGroup(id);
+    return g ? g.name : '';
+  }
+
+  function memberGroupOptionsHtml(selectedId) {
+    const opts = ['<option value="">— No group —</option>'];
+    const list = isSuperUser()
+      ? groups
+      : groups.filter((g) => groupMembers.some((m) => m.groupId === g.id && m.userId === currentUserId()));
+    list.forEach((g) => {
+      opts.push('<option value="' + escapeHtml(g.id) + '"' + (selectedId === g.id ? ' selected' : '') + '>' + escapeHtml(g.name) + '</option>');
+    });
+    return opts.join('');
+  }
+
+  async function fetchGroupsAndMembers() {
+    groups = [];
+    groupMembers = [];
+    knownProfiles = [];
+    try {
+      const gRes = await supabase.from('groups').select('*').order('name', { ascending: true });
+      if (gRes.error) throw gRes.error;
+      groups = (gRes.data || []).map((r) => ({
+        id: r.id,
+        name: r.name || '',
+        description: r.description || '',
+      }));
+    } catch (err) {
+      console.error('fetch groups failed:', err);
+    }
+    try {
+      let q = supabase.from('group_members').select('group_id, user_id, created_at');
+      if (!isSuperUser()) q = q.eq('user_id', currentUserId());
+      const mRes = await q;
+      if (mRes.error) throw mRes.error;
+      groupMembers = (mRes.data || []).map((r) => ({
+        groupId: r.group_id,
+        userId: r.user_id,
+      }));
+    } catch (err) {
+      console.error('fetch group_members failed:', err);
+    }
+    if (isSuperUser()) {
+      try {
+        const pRes = await supabase.from('profiles').select('user_id, email, role').order('email', { ascending: true });
+        if (!pRes.error) knownProfiles = pRes.data || [];
+        // Enrich member emails from profiles
+        const byId = {};
+        knownProfiles.forEach((p) => { byId[p.user_id] = p.email || ''; });
+        groupMembers = groupMembers.map((m) => ({ ...m, email: byId[m.userId] || m.email || '' }));
+      } catch (err) {
+        console.error('fetch profiles failed:', err);
+      }
+    }
+  }
+
   async function fetchAll() {
     setSync('syncing', 'Loading…');
+    await fetchGroupsAndMembers();
     const [projRes, taskRes] = await Promise.all([
       supabase.from('projects').select('*').order('created_at', { ascending: true }),
       supabase.from('tasks').select('*').order('lineup_order', { ascending: true, nullsFirst: false }),
@@ -2036,6 +2431,670 @@
     }
   }
 
+  // ── Audit log ──
+  async function writeAudit({ action, entityType, entityId, entityLabel, details, userId, userEmail }) {
+    try {
+      if (!supabase || !supabaseReady) return;
+      const uid = userId || session?.user?.id || null;
+      if (!uid) return;
+      const row = {
+        user_id: uid,
+        user_email: userEmail || session?.user?.email || null,
+        action: action,
+        entity_type: entityType || null,
+        entity_id: entityId || null,
+        entity_label: entityLabel || null,
+        details: details && typeof details === 'object' ? details : {},
+      };
+      const { error } = await supabase.from('audit_logs').insert(row);
+      if (error) throw error;
+    } catch (err) {
+      console.error('Audit log write failed:', err);
+    }
+  }
+
+  function formatAuditTime(iso) {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return String(iso);
+      return d.toLocaleString(undefined, {
+        year: 'numeric', month: 'short', day: 'numeric',
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+      });
+    } catch {
+      return String(iso);
+    }
+  }
+
+  function shortAuditDetails(details) {
+    if (!details || typeof details !== 'object') return '';
+    const keys = Object.keys(details);
+    if (!keys.length) return '';
+    try {
+      const parts = keys.slice(0, 6).map((k) => {
+        let v = details[k];
+        if (v === null || v === undefined) v = '—';
+        else if (typeof v === 'object') v = JSON.stringify(v);
+        else v = String(v);
+        if (v.length > 60) v = v.slice(0, 57) + '…';
+        return k + ': ' + v;
+      });
+      return parts.join(' · ');
+    } catch {
+      return '';
+    }
+  }
+
+  async function loadAuditLogsInto(bodyEl) {
+    bodyEl.innerHTML = '<div class="audit-loading">Loading…</div>';
+    try {
+      if (!supabase || !supabaseReady || !session?.user) {
+        bodyEl.innerHTML = '<div class="audit-empty">Sign in to view your audit log.</div>';
+        return;
+      }
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('id, action, entity_type, entity_id, entity_label, details, created_at')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      const rows = data || [];
+      if (!rows.length) {
+        bodyEl.innerHTML = '<div class="audit-empty">No audit entries yet.</div>';
+        return;
+      }
+      bodyEl.innerHTML = '<ul class="audit-list" role="list">' + rows.map((r) => {
+        const label = r.entity_label ? escapeHtml(r.entity_label) : '<span style="color:var(--text-dim)">—</span>';
+        const det = shortAuditDetails(r.details);
+        return (
+          '<li>' +
+            '<div class="audit-time">' + escapeHtml(formatAuditTime(r.created_at)) + '</div>' +
+            '<div class="audit-action">' + escapeHtml(r.action || '') + '</div>' +
+            '<div class="audit-label">' + label + '</div>' +
+            (det ? '<div class="audit-details">' + escapeHtml(det) + '</div>' : '') +
+          '</li>'
+        );
+      }).join('') + '</ul>';
+    } catch (err) {
+      console.error(err);
+      bodyEl.innerHTML = '<div class="audit-empty">Could not load audit log: ' +
+        escapeHtml(err.message || 'unknown error') + '</div>';
+    }
+  }
+
+  function openAuditLog() {
+    const backdrop = document.getElementById('audit-backdrop');
+    const bodyEl = document.getElementById('audit-body');
+    backdrop.hidden = false;
+    loadAuditLogsInto(bodyEl);
+  }
+
+  function closeAuditLog() {
+    document.getElementById('audit-backdrop').hidden = true;
+  }
+
+  // ── In-app confirm (dark UI) ──
+  let confirmResolver = null;
+
+  function confirmAction({ title, message, confirmLabel, danger }) {
+    return new Promise((resolve) => {
+      const backdrop = document.getElementById('confirm-backdrop');
+      const okBtn = document.getElementById('confirm-ok');
+      document.getElementById('confirm-title').textContent = title || 'Confirm';
+      document.getElementById('confirm-message').innerHTML = message || '';
+      okBtn.textContent = confirmLabel || 'OK';
+      okBtn.className = danger === false ? 'btn btn-primary' : 'btn btn-danger';
+      if (confirmResolver) {
+        try { confirmResolver(false); } catch { /* ignore */ }
+      }
+      confirmResolver = resolve;
+      backdrop.hidden = false;
+      setTimeout(() => okBtn.focus(), 30);
+    });
+  }
+
+  function closeConfirm(result) {
+    document.getElementById('confirm-backdrop').hidden = true;
+    const r = confirmResolver;
+    confirmResolver = null;
+    if (r) r(!!result);
+  }
+
+  document.getElementById('confirm-cancel').addEventListener('click', () => closeConfirm(false));
+  document.getElementById('confirm-ok').addEventListener('click', () => closeConfirm(true));
+  document.getElementById('confirm-backdrop').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('confirm-backdrop')) closeConfirm(false);
+  });
+  document.getElementById('audit-close').addEventListener('click', closeAuditLog);
+  document.getElementById('audit-refresh').addEventListener('click', () => {
+    loadAuditLogsInto(document.getElementById('audit-body'));
+  });
+  document.getElementById('audit-backdrop').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('audit-backdrop')) closeAuditLog();
+  });
+
+  // ── Roles + delete approvals ──
+  function updateRoleBadge() {
+    const badge = document.getElementById('user-role-badge');
+    const approvalsBtn = document.getElementById('btn-delete-approvals');
+    const adminBtn = document.getElementById('btn-admin');
+    if (badge) {
+      const superUser = isSuperUser();
+      badge.textContent = superUser ? 'Super' : 'Member';
+      badge.className = 'role-badge ' + (superUser ? 'super' : 'member');
+      badge.title = superUser
+        ? 'Super user — full access, manage groups, approve deletes'
+        : 'Member — full CRUD inside your assigned groups/departments';
+    }
+    if (approvalsBtn) approvalsBtn.hidden = !isSuperUser();
+    if (adminBtn) adminBtn.hidden = !isSuperUser();
+  }
+
+  async function ensureProfile() {
+    userRole = 'member';
+    try {
+      if (!supabase || !session?.user) return;
+      const { data, error } = await supabase.rpc('ensure_my_profile');
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      userRole = (row && row.role === 'super') ? 'super' : 'member';
+    } catch (err) {
+      console.error('ensure_my_profile failed:', err);
+      // Fallback: try reading own profile row
+      try {
+        const uid = currentUserId();
+        const { data } = await supabase.from('profiles').select('role').eq('user_id', uid).maybeSingle();
+        if (data?.role === 'super') userRole = 'super';
+      } catch (e2) {
+        console.error(e2);
+      }
+    }
+    updateRoleBadge();
+  }
+
+  async function refreshPendingDeleteIds() {
+    pendingDeleteIds = { project: new Set(), task: new Set() };
+    try {
+      if (!supabase || !session?.user) return;
+      let q = supabase
+        .from('delete_requests')
+        .select('entity_type, entity_id')
+        .eq('status', 'pending');
+      if (!isSuperUser()) {
+        q = q.eq('requester_id', currentUserId());
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      (data || []).forEach((r) => {
+        if (r.entity_type === 'project') pendingDeleteIds.project.add(r.entity_id);
+        if (r.entity_type === 'task') pendingDeleteIds.task.add(r.entity_id);
+      });
+    } catch (err) {
+      console.error('refreshPendingDeleteIds failed:', err);
+    }
+  }
+
+  function hasPendingDelete(entityType, entityId) {
+    return pendingDeleteIds[entityType]?.has(entityId) || false;
+  }
+
+  async function requestDelete({ entityType, entityId, entityLabel, projectId }) {
+    const { data, error } = await supabase
+      .from('delete_requests')
+      .insert({
+        requester_id: currentUserId(),
+        entity_type: entityType,
+        entity_id: entityId,
+        entity_label: entityLabel,
+        project_id: projectId || null,
+        status: 'pending',
+      })
+      .select()
+      .single();
+    if (error) throw error;
+    await writeAudit({
+      action: 'delete_request.create',
+      entityType: 'delete_request',
+      entityId: data.id,
+      entityLabel: entityLabel,
+      details: { entityType, entityId, projectId: projectId || null },
+    });
+    pendingDeleteIds[entityType].add(entityId);
+    return data;
+  }
+
+  async function performEntityDelete({ entityType, entityId, entityLabel, projectId, taskCount }) {
+    if (entityType === 'project') {
+      const { error } = await supabase.from('projects').delete().eq('id', entityId);
+      if (error) throw error;
+      state.projects = state.projects.filter((x) => x.id !== entityId);
+      state.tasks = state.tasks.filter((t) => t.projectId !== entityId);
+      if (state.selectedProjectId === entityId) {
+        state.selectedProjectId = state.projects[0]?.id || null;
+      }
+      await writeAudit({
+        action: 'project.delete',
+        entityType: 'project',
+        entityId,
+        entityLabel,
+        details: { tasksRemoved: taskCount || 0, via: 'direct' },
+      });
+    } else {
+      const { error } = await supabase.from('tasks').delete().eq('id', entityId);
+      if (error) throw error;
+      state.tasks = state.tasks.filter((x) => x.id !== entityId);
+      await writeAudit({
+        action: 'task.delete',
+        entityType: 'task',
+        entityId,
+        entityLabel,
+        details: { projectId: projectId || null, via: 'direct' },
+      });
+    }
+    pendingDeleteIds[entityType]?.delete(entityId);
+  }
+
+  async function loadApprovalsInto(bodyEl) {
+    bodyEl.innerHTML = '<div class="audit-loading">Loading…</div>';
+    try {
+      if (!isSuperUser()) {
+        bodyEl.innerHTML = '<div class="audit-empty">Only super users can review delete requests.</div>';
+        return;
+      }
+      const { data, error } = await supabase
+        .from('delete_requests')
+        .select('id, requester_id, entity_type, entity_id, entity_label, project_id, status, created_at')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      const rows = data || [];
+      if (!rows.length) {
+        bodyEl.innerHTML = '<div class="audit-empty">No pending delete requests.</div>';
+        return;
+      }
+      bodyEl.innerHTML = '<ul class="approvals-list" role="list">' + rows.map((r) => {
+        return (
+          '<li data-id="' + escapeHtml(r.id) + '">' +
+            '<div class="ap-type">' + escapeHtml(r.entity_type) + ' · pending</div>' +
+            '<div class="ap-label">' + escapeHtml(r.entity_label || r.entity_id) + '</div>' +
+            '<div class="ap-meta">' + escapeHtml(formatAuditTime(r.created_at)) +
+              ' · requester ' + escapeHtml((r.requester_id || '').slice(0, 8)) + '…</div>' +
+            '<div class="ap-actions">' +
+              '<button type="button" class="btn btn-danger btn-sm" data-approve="' + escapeHtml(r.id) + '">Approve</button>' +
+              '<button type="button" class="btn btn-ghost btn-sm" data-reject="' + escapeHtml(r.id) + '">Reject</button>' +
+            '</div>' +
+          '</li>'
+        );
+      }).join('') + '</ul>';
+
+      bodyEl.querySelectorAll('[data-approve]').forEach((btn) => {
+        btn.addEventListener('click', () => reviewDeleteRequest(btn.getAttribute('data-approve'), 'approved'));
+      });
+      bodyEl.querySelectorAll('[data-reject]').forEach((btn) => {
+        btn.addEventListener('click', () => reviewDeleteRequest(btn.getAttribute('data-reject'), 'rejected'));
+      });
+    } catch (err) {
+      console.error(err);
+      bodyEl.innerHTML = '<div class="audit-empty">Could not load requests: ' +
+        escapeHtml(err.message || 'unknown error') + '</div>';
+    }
+  }
+
+  function openDeleteApprovals() {
+    const backdrop = document.getElementById('approvals-backdrop');
+    backdrop.hidden = false;
+    loadApprovalsInto(document.getElementById('approvals-body'));
+  }
+
+  function closeDeleteApprovals() {
+    document.getElementById('approvals-backdrop').hidden = true;
+  }
+
+  async function reviewDeleteRequest(requestId, decision) {
+    const bodyEl = document.getElementById('approvals-body');
+    try {
+      setSync('syncing', decision === 'approved' ? 'Approving…' : 'Rejecting…');
+      const { data: req, error: fetchErr } = await supabase
+        .from('delete_requests')
+        .select('*')
+        .eq('id', requestId)
+        .single();
+      if (fetchErr) throw fetchErr;
+      if (!req || req.status !== 'pending') {
+        throw new Error('Request is no longer pending.');
+      }
+
+      if (decision === 'approved') {
+        // Perform the delete (super RLS allows cross-user delete)
+        if (req.entity_type === 'project') {
+          const taskCount = state.tasks.filter((t) => t.projectId === req.entity_id).length;
+          const { error } = await supabase.from('projects').delete().eq('id', req.entity_id);
+          // Ignore "not found" — entity may already be gone
+          if (error && !/no rows|not found|0 rows/i.test(error.message || '')) {
+            // PostgREST may still succeed with 0 rows; only throw hard errors
+            if (error.code && error.code !== 'PGRST116') throw error;
+          }
+          state.projects = state.projects.filter((x) => x.id !== req.entity_id);
+          state.tasks = state.tasks.filter((t) => t.projectId !== req.entity_id);
+          if (state.selectedProjectId === req.entity_id) {
+            state.selectedProjectId = state.projects[0]?.id || null;
+          }
+          await writeAudit({
+            action: 'project.delete',
+            entityType: 'project',
+            entityId: req.entity_id,
+            entityLabel: req.entity_label,
+            details: { via: 'approval', requestId, tasksRemoved: taskCount },
+          });
+        } else if (req.entity_type === 'task') {
+          const { error } = await supabase.from('tasks').delete().eq('id', req.entity_id);
+          if (error && error.code && error.code !== 'PGRST116') throw error;
+          state.tasks = state.tasks.filter((x) => x.id !== req.entity_id);
+          await writeAudit({
+            action: 'task.delete',
+            entityType: 'task',
+            entityId: req.entity_id,
+            entityLabel: req.entity_label,
+            details: { via: 'approval', requestId, projectId: req.project_id },
+          });
+        }
+      }
+
+      const { error: updErr } = await supabase
+        .from('delete_requests')
+        .update({
+          status: decision,
+          reviewed_by: currentUserId(),
+          reviewed_at: new Date().toISOString(),
+        })
+        .eq('id', requestId)
+        .eq('status', 'pending');
+      if (updErr) throw updErr;
+
+      await writeAudit({
+        action: decision === 'approved' ? 'delete_request.approve' : 'delete_request.reject',
+        entityType: 'delete_request',
+        entityId: requestId,
+        entityLabel: req.entity_label,
+        details: {
+          decision,
+          entityType: req.entity_type,
+          entityId: req.entity_id,
+          requesterId: req.requester_id,
+        },
+      });
+
+      pendingDeleteIds[req.entity_type]?.delete(req.entity_id);
+      cacheWrite();
+      setSync('connected', 'Connected');
+      render();
+      await loadApprovalsInto(bodyEl);
+    } catch (err) {
+      console.error(err);
+      setSync('error', 'Error: ' + (err.message || 'review failed'));
+      alert('Could not ' + (decision === 'approved' ? 'approve' : 'reject') + ': ' + (err.message || 'unknown error'));
+      await loadApprovalsInto(bodyEl);
+    }
+  }
+
+
+  // ── Groups admin (super) ──
+  function openAdmin() {
+    if (!isSuperUser()) return;
+    document.getElementById('admin-backdrop').hidden = false;
+    switchAdminTab('groups');
+    refreshAdminPanels();
+  }
+
+  function closeAdmin() {
+    document.getElementById('admin-backdrop').hidden = true;
+  }
+
+  function switchAdminTab(tab) {
+    document.querySelectorAll('.admin-tabs button').forEach((b) => {
+      b.classList.toggle('active', b.getAttribute('data-admin-tab') === tab);
+    });
+    document.querySelectorAll('.admin-section').forEach((s) => {
+      s.classList.toggle('active', s.id === 'admin-panel-' + tab);
+    });
+  }
+
+  function refreshAdminPanels() {
+    // Groups list
+    const gList = document.getElementById('admin-groups-list');
+    if (!groups.length) {
+      gList.innerHTML = '<li><span class="meta">No groups yet. Create one above.</span></li>';
+    } else {
+      gList.innerHTML = groups.map((g) => {
+        const count = groupMembers.filter((m) => m.groupId === g.id).length;
+        return '<li><div><strong>' + escapeHtml(g.name) + '</strong>' +
+          (g.description ? '<div class="meta">' + escapeHtml(g.description) + '</div>' : '') +
+          '<div class="meta">' + count + ' member(s)</div></div>' +
+          '<button type="button" class="btn btn-ghost btn-sm" data-rename-group="' + escapeHtml(g.id) + '">Rename</button></li>';
+      }).join('');
+      gList.querySelectorAll('[data-rename-group]').forEach((btn) => {
+        btn.addEventListener('click', () => renameGroup(btn.getAttribute('data-rename-group')));
+      });
+    }
+
+    // Member group select + list
+    const mg = document.getElementById('admin-member-group');
+    const pg = document.getElementById('admin-project-group');
+    const gOpts = groups.map((g) => '<option value="' + escapeHtml(g.id) + '">' + escapeHtml(g.name) + '</option>').join('');
+    mg.innerHTML = gOpts || '<option value="">No groups</option>';
+    pg.innerHTML = '<option value="">— Unassigned —</option>' + gOpts;
+    renderAdminMembersList();
+
+    // Projects assignment
+    const pp = document.getElementById('admin-project-pick');
+    pp.innerHTML = state.projects.map((p) =>
+      '<option value="' + escapeHtml(p.id) + '">' + escapeHtml(p.name) +
+      (p.groupId ? ' (' + escapeHtml(groupName(p.groupId) || 'group') + ')' : ' (unassigned)') +
+      '</option>'
+    ).join('') || '<option value="">No projects</option>';
+    const pl = document.getElementById('admin-projects-list');
+    pl.innerHTML = state.projects.map((p) =>
+      '<li><div><strong>' + escapeHtml(p.name) + '</strong><div class="meta">' +
+      escapeHtml(groupName(p.groupId) || 'Unassigned') + '</div></div></li>'
+    ).join('') || '<li><span class="meta">No projects</span></li>';
+
+    // Datalist of known emails for convenience
+    let dl = document.getElementById('admin-email-datalist');
+    if (!dl) {
+      dl = document.createElement('datalist');
+      dl.id = 'admin-email-datalist';
+      document.getElementById('admin-member-email').setAttribute('list', 'admin-email-datalist');
+      document.getElementById('admin-member-email').parentElement.appendChild(dl);
+    }
+    dl.innerHTML = knownProfiles.map((p) =>
+      '<option value="' + escapeHtml(p.email || '') + '"></option>'
+    ).join('');
+  }
+
+  function renderAdminMembersList() {
+    const gid = document.getElementById('admin-member-group').value;
+    const list = document.getElementById('admin-members-list');
+    const rows = groupMembers.filter((m) => m.groupId === gid);
+    if (!gid) {
+      list.innerHTML = '<li><span class="meta">Select a group</span></li>';
+      return;
+    }
+    if (!rows.length) {
+      list.innerHTML = '<li><span class="meta">No members in this group</span></li>';
+      return;
+    }
+    list.innerHTML = rows.map((m) => {
+      const email = m.email || (knownProfiles.find((p) => p.user_id === m.userId) || {}).email || m.userId.slice(0, 8) + '…';
+      return '<li><div>' + escapeHtml(email) + '<div class="meta">' + escapeHtml(m.userId) + '</div></div>' +
+        '<button type="button" class="btn btn-ghost btn-sm" data-remove-member="' + escapeHtml(m.userId) + '">Remove</button></li>';
+    }).join('');
+    list.querySelectorAll('[data-remove-member]').forEach((btn) => {
+      btn.addEventListener('click', () => removeGroupMember(gid, btn.getAttribute('data-remove-member')));
+    });
+  }
+
+  async function createGroup() {
+    const name = (document.getElementById('admin-group-name').value || '').trim();
+    const description = (document.getElementById('admin-group-desc').value || '').trim();
+    if (!name) { alert('Enter a group name.'); return; }
+    try {
+      await runSync('Creating group…', async () => {
+        const { data, error } = await supabase.from('groups').insert({ name, description: description || null }).select().single();
+        if (error) throw error;
+        groups.push({ id: data.id, name: data.name, description: data.description || '' });
+        groups.sort((a, b) => a.name.localeCompare(b.name));
+        await writeAudit({
+          action: 'group.create',
+          entityType: 'group',
+          entityId: data.id,
+          entityLabel: data.name,
+          details: { description: description || null },
+        });
+      });
+      document.getElementById('admin-group-name').value = '';
+      document.getElementById('admin-group-desc').value = '';
+      refreshAdminPanels();
+    } catch (err) {
+      alert('Could not create group: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  async function renameGroup(id) {
+    const g = getGroup(id);
+    if (!g) return;
+    const name = prompt('Rename group', g.name);
+    if (name == null) return;
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === g.name) return;
+    try {
+      await runSync('Renaming…', async () => {
+        const { error } = await supabase.from('groups').update({ name: trimmed }).eq('id', id);
+        if (error) throw error;
+        const prev = g.name;
+        g.name = trimmed;
+        await writeAudit({
+          action: 'group.rename',
+          entityType: 'group',
+          entityId: id,
+          entityLabel: trimmed,
+          details: { prevName: prev },
+        });
+      });
+      refreshAdminPanels();
+      render();
+    } catch (err) {
+      alert('Could not rename: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  async function assignGroupMember() {
+    const groupId = document.getElementById('admin-member-group').value;
+    const email = (document.getElementById('admin-member-email').value || '').trim().toLowerCase();
+    if (!groupId || !email) { alert('Choose a group and enter an email.'); return; }
+    const profile = knownProfiles.find((p) => (p.email || '').toLowerCase() === email);
+    if (!profile) {
+      alert('No profile found for that email. The user must sign in once first so a profile row exists.');
+      return;
+    }
+    try {
+      await runSync('Assigning…', async () => {
+        const { error } = await supabase.from('group_members').insert({
+          group_id: groupId,
+          user_id: profile.user_id,
+        });
+        if (error) throw error;
+        groupMembers.push({ groupId, userId: profile.user_id, email: profile.email });
+        await writeAudit({
+          action: 'group.member_add',
+          entityType: 'group',
+          entityId: groupId,
+          entityLabel: groupName(groupId),
+          details: { userId: profile.user_id, email: profile.email },
+        });
+      });
+      document.getElementById('admin-member-email').value = '';
+      refreshAdminPanels();
+    } catch (err) {
+      alert('Could not assign member: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  async function removeGroupMember(groupId, userId) {
+    if (!confirm('Remove this member from the group?')) return;
+    try {
+      await runSync('Removing…', async () => {
+        const { error } = await supabase.from('group_members').delete().eq('group_id', groupId).eq('user_id', userId);
+        if (error) throw error;
+        const email = (groupMembers.find((m) => m.groupId === groupId && m.userId === userId) || {}).email || null;
+        groupMembers = groupMembers.filter((m) => !(m.groupId === groupId && m.userId === userId));
+        await writeAudit({
+          action: 'group.member_remove',
+          entityType: 'group',
+          entityId: groupId,
+          entityLabel: groupName(groupId),
+          details: { userId, email },
+        });
+      });
+      refreshAdminPanels();
+    } catch (err) {
+      alert('Could not remove member: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  async function saveProjectGroupAssignment() {
+    const projectId = document.getElementById('admin-project-pick').value;
+    const groupId = document.getElementById('admin-project-group').value || null;
+    const p = getProject(projectId);
+    if (!p) { alert('Select a project.'); return; }
+    const prevGroupId = p.groupId || null;
+    if ((prevGroupId || null) === (groupId || null)) return;
+    try {
+      await runSync('Saving…', async () => {
+        p.groupId = groupId;
+        const { error } = await supabase.from('projects').update(projectToDb(p)).eq('id', projectId);
+        if (error) {
+          p.groupId = prevGroupId;
+          throw error;
+        }
+        await writeAudit({
+          action: 'project.group_change',
+          entityType: 'project',
+          entityId: projectId,
+          entityLabel: p.name,
+          details: { prevGroupId, groupId, groupName: groupName(groupId) },
+        });
+      });
+      refreshAdminPanels();
+      render();
+    } catch (err) {
+      alert('Could not assign project: ' + (err.message || 'unknown error'));
+    }
+  }
+
+  document.getElementById('btn-admin').addEventListener('click', openAdmin);
+  document.getElementById('admin-close').addEventListener('click', closeAdmin);
+  document.getElementById('admin-backdrop').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('admin-backdrop')) closeAdmin();
+  });
+  document.querySelectorAll('.admin-tabs button').forEach((b) => {
+    b.addEventListener('click', () => switchAdminTab(b.getAttribute('data-admin-tab')));
+  });
+  document.getElementById('admin-group-add').addEventListener('click', createGroup);
+  document.getElementById('admin-member-add').addEventListener('click', assignGroupMember);
+  document.getElementById('admin-member-group').addEventListener('change', renderAdminMembersList);
+  document.getElementById('admin-project-save').addEventListener('click', saveProjectGroupAssignment);
+
+
+  document.getElementById('btn-delete-approvals').addEventListener('click', openDeleteApprovals);
+  document.getElementById('approvals-close').addEventListener('click', closeDeleteApprovals);
+  document.getElementById('approvals-refresh').addEventListener('click', () => {
+    loadApprovalsInto(document.getElementById('approvals-body'));
+  });
+  document.getElementById('approvals-backdrop').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('approvals-backdrop')) closeDeleteApprovals();
+  });
+
   // ── CRUD: projects ──
   function addProject() {
     openModal({
@@ -2049,6 +3108,7 @@
           clientName: (data.clientName || '').trim(),
           branch: (data.branch || '').trim(),
           targetDate: data.targetDate || '',
+          groupId: data.groupId || null,
         };
         (async () => {
           try {
@@ -2062,6 +3122,13 @@
               const mapped = mapProjectFromDb(row);
               state.projects.push(mapped);
               state.selectedProjectId = mapped.id;
+              await writeAudit({
+                action: 'project.create',
+                entityType: 'project',
+                entityId: mapped.id,
+                entityLabel: mapped.name,
+                details: { status: mapped.status, clientName: mapped.clientName || null, groupId: mapped.groupId || null },
+              });
             });
             render();
             showPane('main');
@@ -2085,6 +3152,7 @@
         p.clientName = (data.clientName || '').trim();
         p.branch = (data.branch || '').trim();
         p.targetDate = data.targetDate || '';
+        p.groupId = data.groupId || null;
         render();
         (async () => {
           try {
@@ -2094,6 +3162,32 @@
                 .update(projectToDb(p))
                 .eq('id', id);
               if (error) throw error;
+              await writeAudit({
+                action: 'project.update',
+                entityType: 'project',
+                entityId: id,
+                entityLabel: p.name,
+                details: {
+                  status: p.status,
+                  prevStatus: prev.status,
+                  clientName: p.clientName || null,
+                  groupId: p.groupId || null,
+                  prevGroupId: prev.groupId || null,
+                },
+              });
+              if ((prev.groupId || null) !== (p.groupId || null)) {
+                await writeAudit({
+                  action: 'project.group_change',
+                  entityType: 'project',
+                  entityId: id,
+                  entityLabel: p.name,
+                  details: {
+                    prevGroupId: prev.groupId || null,
+                    groupId: p.groupId || null,
+                    groupName: groupName(p.groupId),
+                  },
+                });
+              }
             });
           } catch {
             Object.assign(p, prev);
@@ -2107,29 +3201,45 @@
   function deleteProject(id) {
     const p = getProject(id);
     if (!p) return;
-    if (!confirm(`Delete project “${p.name}” and all its tasks?`)) return;
-    const prevProjects = state.projects.slice();
-    const prevTasks = state.tasks.slice();
-    const prevSelected = state.selectedProjectId;
-    state.projects = state.projects.filter((x) => x.id !== id);
-    state.tasks = state.tasks.filter((t) => t.projectId !== id);
-    if (state.selectedProjectId === id) {
-      state.selectedProjectId = state.projects[0]?.id || null;
-    }
-    render();
-    (async () => {
-      try {
-        await runSync('Deleting…', async () => {
-          const { error } = await supabase.from('projects').delete().eq('id', id);
-          if (error) throw error;
-        });
-      } catch {
-        state.projects = prevProjects;
-        state.tasks = prevTasks;
-        state.selectedProjectId = prevSelected;
-        render();
+    const label = p.name || 'Untitled project';
+    const taskCount = state.tasks.filter((t) => t.projectId === id).length;
+    // Within assigned groups, members may delete directly (RLS). Supers may delete anywhere.
+    confirmAction({
+      title: 'Delete project',
+      message: 'Delete project <strong>“' + escapeHtml(label) + '”</strong> and all its tasks? This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    }).then((ok) => {
+      if (!ok) return;
+      const prevProjects = state.projects.slice();
+      const prevTasks = state.tasks.slice();
+      const prevSelected = state.selectedProjectId;
+      state.projects = state.projects.filter((x) => x.id !== id);
+      state.tasks = state.tasks.filter((t) => t.projectId !== id);
+      if (state.selectedProjectId === id) {
+        state.selectedProjectId = state.projects[0]?.id || null;
       }
-    })();
+      render();
+      (async () => {
+        try {
+          await runSync('Deleting…', async () => {
+            await performEntityDelete({
+              entityType: 'project',
+              entityId: id,
+              entityLabel: label,
+              taskCount,
+            });
+          });
+          cacheWrite();
+          render();
+        } catch {
+          state.projects = prevProjects;
+          state.tasks = prevTasks;
+          state.selectedProjectId = prevSelected;
+          render();
+        }
+      })();
+    });
   }
 
   function selectProject(id) {
@@ -2163,6 +3273,10 @@
         </div>
       </div>
       <div class="form-group">
+        <label for="f-group">Department / group</label>
+        <select id="f-group" name="groupId">${memberGroupOptionsHtml(p.groupId || '')}</select>
+      </div>
+      <div class="form-group">
         <label for="f-desc">Description (optional)</label>
         <textarea id="f-desc" name="description" maxlength="500">${escapeHtml(p.description || '')}</textarea>
       </div>
@@ -2188,23 +3302,69 @@
     '"Pause vendor follow-up","Sample row — status hold / on hold",low,,hold',
   ].join('\n') + '\n';
 
+  const LUNCH_LADY_CSV_TEMPLATE = [
+    "title,notes,priority,due_date,status",
+    "KDS: Flash new or updated tickets,[KDS] New or updated tickets should flash on the KDS to draw attention.,high,,pending",
+    "KDS: Double-tap ticket to fulfil entire ticket,[KDS] Double tap a ticket to fulfill the entire ticket in one step.,high,,pending",
+    "KDS: Single-tap ticket then item to fulfil,\"[KDS] Single tap a ticket to view all items, then single tap an individual item to fulfill it.\",high,,pending",
+    "KDS: Two-step Chef & Expediter fulfilment,\"[KDS] Once the Chef fulfills an item or ticket, it appears on the Expediter KDS with a single green check mark. When the Expediter fulfills an item or ticket, it immediately fulfills across all applicable stations.\",high,,pending",
+    "KDS: Prep stations view-only (no fulfil),[KDS] Prep stations can view their assigned tickets but cannot fulfill any items. Fulfillment is limited to the Chef or Expediter.,high,,pending",
+    "KDS: Recall button for fulfilled tickets,[KDS] Add a Recall button to recall tickets that have already been fulfilled.,high,,pending",
+    "KDS: Recently Fulfilled tab,[KDS] Add a Recently Fulfilled tab to view all fulfilled tickets.,medium,,pending",
+    "KDS: Double-tap in Recently Fulfilled to recall,\"[KDS] Inside the Recently Fulfilled tab, double tap a ticket to recall it to the main active orders screen.\",medium,,pending",
+    "KDS: Rush button — front of queue,[KDS] Add a Rush button to move a ticket to the front of the queue for all applicable stations.,high,,pending",
+    "KDS: Modifiers in red text,[KDS] Modifiers should appear in red text.,medium,,pending",
+    "KDS: All Day tab — item quantity summary,[KDS] Add an All Day tab that displays a summary of individual item quantities for all active orders.,medium,,pending",
+    "KDS: Ticket colour coding by age,[KDS] Green = received < 10 min; Orange = over 10 min; Red = over 20 min.,high,,pending",
+    "KDS: Show product code (receipt shows full details),\"[KDS] The KDS should display the product code, while the full product details should be displayed on the receipt.\",medium,,pending",
+    "KDS/POS: Different product names allowed,[KDS] The system should allow the POS product name and KDS product name to be different.,high,,pending",
+    "KDS: Modifiers & modifier groups + SAME TIME,\"[KDS] Support modifiers and modifier groups. When SAME TIME is selected, modifier information should be printed/displayed on all applicable KDS stations.\",high,,pending",
+    "POS: Send button — send selected + log out,\"[POS] Under the order summary, add a Send button that sends selected items to the kitchen or bar and logs out the user.\",high,,pending",
+    "\"POS: Stay button — send selected, stay logged in\",[POS] Add a Stay button that sends selected items to the kitchen or bar but does not log out the user.,high,,pending",
+    "POS: Hold button — save order without sending,[POS] Add a Hold button that saves the order for the Server to return to later without sending any items to the kitchen or bar.,high,,pending",
+    "POS: Select individual items in order summary,\"[POS] Add the ability to select individual items in the order summary for actions such as Send, Hold, Promo, etc.\",high,,pending",
+    "POS: Update item after sent (e.g. add modifier),\"[POS] Add the ability to update an item after it has already been sent to the kitchen, such as adding a modifier. The updated item ticket should then flash on the KDS.\",high,,pending",
+    "POS: Colour coding in order summary,[POS] Red = Unsent; Orange = Sent but not fulfilled; Green = Fulfilled.,high,,pending",
+    "POS: Quick Edit mode (Manager codes),\"[POS] Quick Edit via Manager POS codes: item rearrangement, quantity updates, and item creation/deletion.\",medium,,pending",
+    "POS: Modifiers per item (Toast-like),\"[POS] Improve item modifiers so that they appear per item, similar to Toast POS.\",high,,pending",
+    "Config: Meal-period pricing (Lunch / Dinner),\"[Config] Products may have different prices depending on the meal period, such as Lunch and Dinner.\",high,,pending",
+    "\"Config: Different POS vs KDS names, same product\",[Config] POS and KDS should support different product names while maintaining the same product configuration.,high,,pending",
+    "Reporting: Z Reading — Total Net Sales Food & Beverage,[Reporting] Z Reading should display the Total Net Sales for Food and Beverages.,high,,pending",
+    "Reporting: Separate Food vs Beverage net sales,[Reporting] Food and Beverage net sales should preferably be displayed as separate totals.,medium,,pending",
+    "\"Implementation: Target go-live Oct 12 or 29, 2026\",\"[Implementation] Target Date: October 12 or 29, 2026. Confirm final date with client.\",high,2026-10-12,pending",
+    "Implementation: POS prepared ≥1 week before target,[Implementation] POS should be prepared and configured at least one week before the target date.,high,2026-10-05,pending",
+    "Implementation: Testing & validation before go-live,[Implementation] Testing and validation should be completed before the target implementation date.,high,2026-10-05,pending",
+  ].join('\n') + '\n';
+
   const TUAN_TUAN_CLIENT = 'Tuan-Tuan Greenhills';
 
-  function downloadTaskTemplate() {
-    const blob = new Blob([TASK_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
+  function downloadCsvFile(content, filename) {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'task-import-template.csv';
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  }
+
+  function downloadTaskTemplate() {
+    downloadCsvFile(TASK_CSV_TEMPLATE, 'task-import-template.csv');
     alert(
       'Downloaded the simple CSV template (columns: title, notes, priority, due_date, status).\n\n' +
       'You can also import a Tuan-Tuan style Excel checklist (.xlsx) directly via Import tasks — ' +
       'sheets named “Additional Requests” and “Done by EPOS” are recognised automatically. ' +
       'The Summary & Sign-off sheet is ignored.'
+    );
+  }
+
+  function downloadLunchLadyTemplate() {
+    downloadCsvFile(LUNCH_LADY_CSV_TEMPLATE, 'lunch-lady-kds-pos-template.csv');
+    alert(
+      'Downloaded the Lunch Lady KDS/POS revisions checklist (30 tasks).\n\n' +
+      'Create or select the Lunch Lady project, then choose Import tasks and select this CSV.'
     );
   }
 
@@ -2630,6 +3790,18 @@
           }
           parsed.clientWasSet = true;
         }
+        await writeAudit({
+          action: 'tasks.import',
+          entityType: 'import',
+          entityId: projectId,
+          entityLabel: project.name,
+          details: {
+            count: drafts.length,
+            skipped: skipped || 0,
+            format: parsed.format || (isExcelImportFile(file) ? 'excel' : 'csv'),
+            filename: file.name || null,
+          },
+        });
       });
       render();
       const parts = [
@@ -2685,7 +3857,15 @@
                 .select()
                 .single();
               if (error) throw error;
-              state.tasks.push(mapTaskFromDb(row));
+              const mapped = mapTaskFromDb(row);
+              state.tasks.push(mapped);
+              await writeAudit({
+                action: 'task.create',
+                entityType: 'task',
+                entityId: mapped.id,
+                entityLabel: mapped.title,
+                details: { projectId, status: mapped.status, priority: mapped.priority },
+              });
             });
             render();
           } catch { /* status set */ }
@@ -2726,6 +3906,13 @@
           const mapped = mapTaskFromDb(row);
           state.tasks.push(mapped);
           newId = mapped.id;
+          await writeAudit({
+            action: 'task.create',
+            entityType: 'task',
+            entityId: mapped.id,
+            entityLabel: mapped.title,
+            details: { projectId, status: mapped.status, priority: mapped.priority, quickAdd: true },
+          });
         });
         render();
         if (newId) editTask(newId);
@@ -2760,6 +3947,22 @@
             await runSync('Saving…', async () => {
               const { error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', id);
               if (error) throw error;
+              const statusChanged = prev.status !== t.status;
+              let action = 'task.update';
+              if (statusChanged && t.status === 'hold') action = 'task.hold';
+              else if (statusChanged) action = 'task.status';
+              await writeAudit({
+                action,
+                entityType: 'task',
+                entityId: id,
+                entityLabel: t.title,
+                details: {
+                  status: t.status,
+                  prevStatus: prev.status,
+                  priority: t.priority,
+                  prevPriority: prev.priority,
+                },
+              });
             });
           } catch {
             Object.assign(t, prev);
@@ -2773,30 +3976,51 @@
   function deleteTask(id) {
     const t = state.tasks.find((x) => x.id === id);
     if (!t) return;
-    if (!confirm(`Delete task “${t.title}”?`)) return;
-    const prev = state.tasks.slice();
-    state.tasks = state.tasks.filter((x) => x.id !== id);
-    render();
-    (async () => {
-      try {
-        await runSync('Deleting…', async () => {
-          const { error } = await supabase.from('tasks').delete().eq('id', id);
-          if (error) throw error;
-        });
-      } catch {
-        state.tasks = prev;
-        render();
-      }
-    })();
+    const label = t.title || 'Untitled task';
+    confirmAction({
+      title: 'Delete task',
+      message: 'Delete task <strong>“' + escapeHtml(label) + '”</strong>? This cannot be undone.',
+      confirmLabel: 'Delete',
+      danger: true,
+    }).then((ok) => {
+      if (!ok) return;
+      const prev = state.tasks.slice();
+      state.tasks = state.tasks.filter((x) => x.id !== id);
+      render();
+      (async () => {
+        try {
+          await runSync('Deleting…', async () => {
+            await performEntityDelete({
+              entityType: 'task',
+              entityId: id,
+              entityLabel: label,
+              projectId: t.projectId,
+            });
+          });
+          cacheWrite();
+          render();
+        } catch {
+          state.tasks = prev;
+          render();
+        }
+      })();
+    });
   }
 
-  function persistTaskStatusChange(t, prev) {
+  function persistTaskStatusChange(t, prev, auditAction) {
     render();
     (async () => {
       try {
         await runSync('Saving…', async () => {
           const { error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', t.id);
           if (error) throw error;
+          await writeAudit({
+            action: auditAction || 'task.status',
+            entityType: 'task',
+            entityId: t.id,
+            entityLabel: t.title,
+            details: { status: t.status, prevStatus: prev.status },
+          });
         });
       } catch {
         Object.assign(t, prev);
@@ -2823,7 +4047,7 @@
       t.status = 'pending';
       assignPendingLineup(t);
     }
-    persistTaskStatusChange(t, prev);
+    persistTaskStatusChange(t, prev, 'task.status');
   }
 
   /** Put a pending (or done) task on hold — excluded from progress and lineup. */
@@ -2833,7 +4057,7 @@
     const prev = { ...t };
     t.status = 'hold';
     t.lineupOrder = 0;
-    persistTaskStatusChange(t, prev);
+    persistTaskStatusChange(t, prev, 'task.hold');
   }
 
   function taskFields(t) {
@@ -2907,7 +4131,24 @@
   }
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !document.getElementById('modal-backdrop').hidden) {
+    if (e.key !== 'Escape') return;
+    if (!document.getElementById('confirm-backdrop').hidden) {
+      closeConfirm(false);
+      return;
+    }
+    if (!document.getElementById('admin-backdrop').hidden) {
+      closeAdmin();
+      return;
+    }
+    if (!document.getElementById('approvals-backdrop').hidden) {
+      closeDeleteApprovals();
+      return;
+    }
+    if (!document.getElementById('audit-backdrop').hidden) {
+      closeAuditLog();
+      return;
+    }
+    if (!document.getElementById('modal-backdrop').hidden) {
       closeModal();
     }
   });
@@ -3052,7 +4293,7 @@
             tabindex="0">
           <span class="status-dot ${p.status}" title="${STATUS_LABELS[p.status] || p.status}" aria-hidden="true"></span>
           <div class="info">
-            <div class="name">${escapeHtml(p.name)}</div>
+            <div class="name">${escapeHtml(p.name)}${p.groupId && groupName(p.groupId) ? ' <span class="group-chip" title="Department">' + escapeHtml(groupName(p.groupId)) + '</span>' : ''}</div>
             <div class="meta">
               <span>${STATUS_LABELS[p.status] || p.status}</span>
               <span>·</span>
@@ -3065,7 +4306,7 @@
           </div>
           <div class="project-actions">
             <button type="button" class="btn-icon" data-action="edit-project" data-id="${p.id}" title="Rename / edit" aria-label="Edit project">✎</button>
-            <button type="button" class="btn-icon danger" data-action="delete-project" data-id="${p.id}" title="Delete" aria-label="Delete project">✕</button>
+            <button type="button" class="btn-icon danger" data-action="delete-project" data-id="${p.id}" title="Delete project" aria-label="Delete project">✕</button>
           </div>
         </li>
       `;
@@ -3136,7 +4377,7 @@
     main.innerHTML = `
       <div class="project-header">
         <div class="titles">
-          <h2>${escapeHtml(project.name)}</h2>
+          <h2>${escapeHtml(project.name)}${project.groupId && groupName(project.groupId) ? ' <span class="group-chip">' + escapeHtml(groupName(project.groupId)) + '</span>' : ''}</h2>
           <p class="desc">${project.description ? escapeHtml(project.description) : '<span style="color:var(--text-dim)">No description</span>'}</p>
           ${factsHtml}
           <p style="margin-top:0.5rem">
@@ -3155,11 +4396,13 @@
         </div>
         <div class="task-toolbar-actions">
           <button type="button" class="btn btn-ghost" id="btn-download-template" title="Download a CSV template, or note that Tuan-Tuan Excel checklists can be imported directly">Download template</button>
+          <button type="button" class="btn btn-ghost" id="btn-download-lunch-lady-template" title="Download the 30-row Lunch Lady KDS/POS revisions checklist">Download Lunch Lady template</button>
           <button type="button" class="btn btn-ghost" id="btn-import-tasks" title="Import tasks from CSV or a Tuan-Tuan Excel checklist into this project">Import tasks</button>
           <input type="file" id="import-tasks-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden />
           <button type="button" class="btn btn-primary" id="btn-add-task">+ Add task</button>
         </div>
       </div>
+      <p class="task-import-hint">Create or select project <strong>Lunch Lady</strong>, then choose <strong>Import tasks</strong> and select this CSV.</p>
 
       <ul class="task-list" id="task-list">
         ${tasks.length === 0 ? `
@@ -3177,6 +4420,7 @@
     document.getElementById('btn-add-task')?.addEventListener('click', () => quickAddTask(project.id));
     document.getElementById('empty-add-task')?.addEventListener('click', () => quickAddTask(project.id));
     document.getElementById('btn-download-template')?.addEventListener('click', downloadTaskTemplate);
+    document.getElementById('btn-download-lunch-lady-template')?.addEventListener('click', downloadLunchLadyTemplate);
     document.getElementById('btn-import-tasks')?.addEventListener('click', () => {
       const input = document.getElementById('import-tasks-file');
       if (input) {
@@ -3234,7 +4478,7 @@
         <div class="task-actions">
           ${holdBtn}
           <button type="button" class="btn-icon" data-action="edit-task" data-id="${t.id}" title="Edit" aria-label="Edit task">✎</button>
-          <button type="button" class="btn-icon danger" data-action="delete-task" data-id="${t.id}" title="Delete" aria-label="Delete task">✕</button>
+          <button type="button" class="btn-icon danger" data-action="delete-task" data-id="${t.id}" title="Delete task" aria-label="Delete task">✕</button>
         </div>
       </li>
     `;
@@ -3297,6 +4541,7 @@
   // ── Event delegation ──
   document.getElementById('btn-add-project').addEventListener('click', addProject);
   document.getElementById('btn-samples').addEventListener('click', addSampleData);
+  document.getElementById('btn-audit-log').addEventListener('click', openAuditLog);
 
   document.getElementById('project-list').addEventListener('click', (e) => {
     const actionBtn = e.target.closest('[data-action]');
@@ -3436,7 +4681,7 @@
     setBusy(btn, true, 'Signing in…');
     setAuthMsg('');
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         const msg = (error.message || '').toLowerCase();
         if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
@@ -3448,7 +4693,16 @@
         }
         throw error;
       }
-      // session via onAuthStateChange
+      // session via onAuthStateChange — audit using returned session (in-memory session may lag)
+      const u = signInData?.session?.user || signInData?.user || null;
+      await writeAudit({
+        action: 'auth.signin',
+        entityType: 'auth',
+        entityLabel: email,
+        details: { method: 'password' },
+        userId: u?.id,
+        userEmail: u?.email || email,
+      });
     } catch (err) {
       console.error(err);
       setAuthMsg(friendlyAuthError(err), 'error');
@@ -3541,6 +4795,13 @@
     if (!requireSupabaseClient()) return;
     try {
       setSync('syncing', 'Signing out…');
+      const email = session?.user?.email || null;
+      await writeAudit({
+        action: 'auth.signout',
+        entityType: 'auth',
+        entityLabel: email,
+        details: {},
+      });
       await supabase.auth.signOut();
     } catch (err) {
       console.error(err);
@@ -3554,6 +4815,8 @@
     loadSelectedProjectId();
     setLoggedInUI();
     setAuthMsg('');
+    await ensureProfile();
+    await refreshPendingDeleteIds();
 
     const cached = cacheRead();
     if (cached) {
