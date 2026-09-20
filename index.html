@@ -2673,6 +2673,7 @@
       projectId: row.project_id || null,
       testerId: row.tester_id || null,
       testerEmail: row.tester_email || '',
+      testerName: (row.tester_name || '').trim(),
       checkedAt: row.checked_at,
       result: row.result === 'pass' ? 'pass' : 'fail',
       notes: row.notes || '',
@@ -2725,7 +2726,7 @@
     const cls = latest.result === 'pass' ? 'pass' : 'fail';
     const label = latest.result === 'pass' ? 'Pass' : 'Fail';
     const when = formatAuditTime(latest.checkedAt);
-    const who = latest.testerEmail || 'Unknown';
+    const who = latest.testerName || latest.testerEmail || 'Unknown';
     const title = escapeHtml(who + (when ? ' · ' + when : ''));
     return '<span class="qa-badge ' + cls + '" title="' + title + '">QA: ' + label + '</span>';
   }
@@ -2766,7 +2767,7 @@
         : '';
       return '<li>'
         + '<div class="qa-h-top"><span style="font-size:0.72rem;color:var(--text-dim)">Attempt ' + n + '</span> ' + badge + '</div>'
-        + '<div class="qa-h-meta">' + escapeHtml(c.testerEmail || 'Unknown') + ' · ' + escapeHtml(formatAuditTime(c.checkedAt)) + '</div>'
+        + '<div class="qa-h-meta">' + escapeHtml(c.testerName || c.testerEmail || 'Unknown') + ' · ' + escapeHtml(formatAuditTime(c.checkedAt)) + '</div>'
         + notes
         + '</li>';
     }).join('') + '</ul>';
@@ -2784,7 +2785,12 @@
     const backdrop = document.getElementById('qa-backdrop');
     document.getElementById('qa-title').textContent = 'Check & test — ' + (t.title || 'Untitled task');
     document.getElementById('qa-task-id').value = taskId;
-    document.getElementById('qa-tester').value = session?.user?.email || '';
+    const testerDisplay = (myFullName || '').trim();
+    document.getElementById('qa-tester').value = testerDisplay
+      || '(Set your full name in Profile)';
+    document.getElementById('qa-tester').title = testerDisplay
+      ? testerDisplay
+      : 'Open Profile to set your full name — Tester should be your name, not email.';
     document.getElementById('qa-checked-at').value = toDatetimeLocalValue(new Date());
     document.getElementById('qa-notes').value = '';
     const radios = document.querySelectorAll('input[name="qa-result"]');
@@ -2816,11 +2822,17 @@
     const notes = (document.getElementById('qa-notes').value || '').trim();
     const checkedAt = datetimeLocalToIso(document.getElementById('qa-checked-at').value);
     const attemptNo = qaForTask(taskId).length + 1;
+    const testerName = (myFullName || '').trim();
+    if (!testerName) {
+      setSync('error', 'Set your Full name in Profile before logging a QA check.');
+      return;
+    }
     const row = {
       task_id: taskId,
       project_id: t.projectId || null,
       tester_id: currentUserId(),
       tester_email: session?.user?.email || null,
+      tester_name: testerName,
       checked_at: checkedAt,
       result,
       notes: notes || null,
@@ -2830,7 +2842,14 @@
     try {
       if (submitBtn) submitBtn.disabled = true;
       await runSync('Logging check…', async () => {
-        const { data, error } = await supabase.from('task_qa_checks').insert(row).select().maybeSingle();
+        let { data, error } = await supabase.from('task_qa_checks').insert(row).select().maybeSingle();
+        if (error && /tester_name|column|schema cache/i.test(error.message || '')) {
+          const fallback = Object.assign({}, row);
+          delete fallback.tester_name;
+          const retry = await supabase.from('task_qa_checks').insert(fallback).select().maybeSingle();
+          data = retry.data;
+          error = retry.error;
+        }
         if (error) throw error;
         if (data) {
           taskQaChecks.unshift(mapQaFromDb(data));
@@ -2842,7 +2861,7 @@
           entityType: 'task',
           entityId: taskId,
           entityLabel: t.title,
-          details: { result, attemptNo, notes: notes || null, checkedAt },
+          details: { result, attemptNo, notes: notes || null, checkedAt, testerName },
         });
       });
       document.getElementById('qa-notes').value = '';
@@ -3213,10 +3232,17 @@
     try {
       const d = new Date(iso);
       if (Number.isNaN(d.getTime())) return { date: String(iso), time: '' };
-      return {
-        date: d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }),
-        time: d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }),
-      };
+      // e.g. September 20, 2026
+      const date = d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      // e.g. 11:04:55 PM
+      let time = d.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: true,
+      });
+      time = time.replace(/\s?(am|pm)\b/gi, (m) => ' ' + m.trim().toUpperCase());
+      return { date, time: time.trim() };
     } catch {
       return { date: String(iso), time: '' };
     }
