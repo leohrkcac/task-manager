@@ -1092,7 +1092,7 @@
       <!-- Create account -->
       <div id="auth-view-signup" hidden>
         <h2>Create account</h2>
-        <p class="auth-lead">We will email you a 6-digit code to verify your address.</p>
+        <p class="auth-lead">We will email you an 8-digit code to verify your address.</p>
         <form id="form-signup" autocomplete="on">
           <div class="form-group">
             <label for="signup-email">Email</label>
@@ -1117,16 +1117,18 @@
       <!-- OTP -->
       <div id="auth-view-otp" hidden>
         <h2>Enter verification code</h2>
-        <p class="auth-lead">Check your inbox for a 6-digit code sent to:</p>
+        <p class="auth-lead">Check your inbox for an 8-digit code sent to:</p>
         <div class="auth-email-chip" id="otp-email-display"></div>
         <form id="form-otp" autocomplete="one-time-code">
-          <div class="otp-inputs" id="otp-inputs" aria-label="Six-digit verification code">
+          <div class="otp-inputs" id="otp-inputs" aria-label="Eight-digit verification code">
             <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 1" />
             <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 2" />
             <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 3" />
             <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 4" />
             <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 5" />
             <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 6" />
+            <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 7" />
+            <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 8" />
           </div>
           <button type="submit" class="btn btn-primary btn-block" id="btn-verify-otp">Verify and continue</button>
         </form>
@@ -1251,7 +1253,7 @@
       return 'Those details do not match an account. Check your email and password, or create an account.';
     }
     if (m.includes('email not confirmed') || m.includes('not confirmed')) {
-      return 'Please verify your email (open the Confirm link in your email, or enter the 6-digit code if you have one) before signing in.';
+      return 'Please verify your email (open the Confirm link in your email, or enter the 8-digit code if you have one) before signing in.';
     }
     if (m.includes('user already registered') || m.includes('already been registered')) {
       return 'An account with this email already exists. Sign in instead, or verify with your code.';
@@ -2855,7 +2857,7 @@
         setAuthMsg('Account created. You are signed in.', 'success');
         // onAuthStateChange will boot the app
       } else {
-        setAuthMsg('Check your email to verify. If you received a 6-digit code, enter it below. If you only have a Confirm link, open that link on this site.', 'info');
+        setAuthMsg('Check your email to verify. If you received an 8-digit code, enter it below. If you only have a Confirm link, open that link on this site.', 'info');
         showAuthView('otp');
       }
     } catch (err) {
@@ -2881,7 +2883,7 @@
         if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
           pendingOtpEmail = email;
           pendingOtpType = 'signup';
-          setAuthMsg('Your email is not verified yet. Enter the 6-digit code, or resend a new one.', 'info');
+          setAuthMsg('Your email is not verified yet. Enter the 8-digit code, or resend a new one.', 'info');
           showAuthView('otp');
           return;
         }
@@ -2900,8 +2902,8 @@
     e.preventDefault();
     if (!requireSupabaseClient()) return;
     const token = readOtpCode();
-    if (token.length !== 6) {
-      setAuthMsg('Please enter the full 6-digit code from your email.', 'error');
+    if (token.length !== 8) {
+      setAuthMsg('Please enter the full 8-digit code from your email.', 'error');
       return;
     }
     if (!pendingOtpEmail) {
