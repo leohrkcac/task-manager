@@ -846,7 +846,45 @@
       clip: rect(0,0,0,0);
       border: 0;
     }
+
+    /* ── Sync status ── */
+    .sync-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.75rem;
+      font-weight: 550;
+      color: var(--text-muted);
+      padding: 0.3rem 0.65rem;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .sync-status .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      flex-shrink: 0;
+    }
+    .sync-status.connected .dot { background: var(--success); }
+    .sync-status.connected { color: var(--success); border-color: rgba(61, 214, 140, 0.35); }
+    .sync-status.error .dot { background: var(--danger); }
+    .sync-status.error { color: var(--danger); border-color: rgba(240, 113, 120, 0.35); }
+    .sync-status.syncing .dot {
+      background: var(--accent);
+      animation: pulse 1s ease-in-out infinite;
+    }
+    .sync-status.syncing { color: var(--accent); }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    .header-actions {
+      align-items: center;
+    }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div class="app" id="app">
@@ -856,8 +894,12 @@
         <span class="label">Task Manager</span>
       </h1>
       <div class="header-actions">
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-reset" title="Clear all data and restore samples">
-          Reset samples
+        <span class="sync-status syncing" id="sync-status" title="Connecting…">
+          <span class="dot" aria-hidden="true"></span>
+          <span class="label">Connecting…</span>
+        </span>
+        <button type="button" class="btn btn-ghost btn-sm" id="btn-samples" title="Insert demo projects and tasks into Supabase">
+          Add sample data
         </button>
       </div>
     </header>
@@ -907,20 +949,20 @@
     </div>
   </div>
 
-  <script>
+<script>
 (function () {
   'use strict';
 
-  const STORAGE_KEY = 'project-task-tracker:v1';
+  const SUPABASE_URL = 'https://lxktapoqxwpwlioxkngn.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4a3RhcG9xeHdwd2xpb3hrbWduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4Njk5NzEsImV4cCI6MjEwNTQ0NTk3MX0.uCgL-156utwsP6jg1f_ftGPWxFZtZTU01h1MflXl96Y';
+  const CACHE_KEY = 'project-task-tracker:cache:v2';
+  const SELECTED_KEY = 'project-task-tracker:selected';
   const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
   const STATUS_LABELS = { active: 'Active', 'on-hold': 'On hold', done: 'Done' };
 
-  // ── Helpers ──
-  const uid = () =>
-    (typeof crypto !== 'undefined' && crypto.randomUUID)
-      ? crypto.randomUUID()
-      : 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 9);
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+  // ── Helpers ──
   const todayISO = () => {
     const d = new Date();
     const y = d.getFullYear();
@@ -967,71 +1009,279 @@
     return '';
   }
 
-  // ── Sample data ──
-  function seedData() {
-    const p1 = uid();
-    const p2 = uid();
-    const p3 = uid();
-    const tasks = [
-      { id: uid(), projectId: p1, title: 'Draft project brief', notes: 'Outline goals and success criteria.', priority: 'high', dueDate: addDays(2), status: 'pending', lineupOrder: 0 },
-      { id: uid(), projectId: p1, title: 'Stakeholder kick-off', notes: '', priority: 'high', dueDate: addDays(5), status: 'pending', lineupOrder: 1 },
-      { id: uid(), projectId: p1, title: 'Set up shared folder', notes: 'Invite the team.', priority: 'low', dueDate: '', status: 'done', lineupOrder: null },
-      { id: uid(), projectId: p2, title: 'Review design mock-ups', notes: 'Focus on mobile layout.', priority: 'medium', dueDate: addDays(1), status: 'pending', lineupOrder: 2 },
-      { id: uid(), projectId: p2, title: 'Write accessibility checklist', notes: '', priority: 'medium', dueDate: addDays(7), status: 'pending', lineupOrder: 3 },
-      { id: uid(), projectId: p2, title: 'Pick colour palette', notes: 'Dark theme preferred.', priority: 'low', dueDate: '', status: 'done', lineupOrder: null },
-      { id: uid(), projectId: p3, title: 'File quarterly expenses', notes: '', priority: 'high', dueDate: addDays(-1), status: 'pending', lineupOrder: 4 },
-      { id: uid(), projectId: p3, title: 'Renew domain', notes: 'Check auto-renew is on.', priority: 'low', dueDate: addDays(14), status: 'pending', lineupOrder: 5 },
-    ];
+  function emptyToNull(v) {
+    if (v === '' || v === undefined) return null;
+    return v;
+  }
+
+  // UI on-hold ↔ DB on_hold
+  function statusToUi(s) {
+    return s === 'on_hold' ? 'on-hold' : s;
+  }
+  function statusToDb(s) {
+    return s === 'on-hold' ? 'on_hold' : s;
+  }
+
+  function mapProjectFromDb(row) {
+    return {
+      id: row.id,
+      name: row.title || '',
+      description: row.description || '',
+      status: statusToUi(row.status || 'active'),
+      clientName: row.client_name || '',
+      branch: row.branch || '',
+      targetDate: row.target_date || '',
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  function mapTaskFromDb(row) {
+    return {
+      id: row.id,
+      projectId: row.project_id,
+      title: row.title || '',
+      notes: row.notes || '',
+      priority: row.priority || 'medium',
+      dueDate: row.due_date || '',
+      status: row.status || 'pending',
+      lineupOrder: row.lineup_order == null ? null : row.lineup_order,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  function projectToDb(p) {
+    return {
+      title: p.name,
+      description: p.description || '',
+      status: statusToDb(p.status),
+      client_name: p.clientName || '',
+      branch: p.branch || '',
+      target_date: emptyToNull(p.targetDate),
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  function taskToDb(t) {
+    return {
+      project_id: t.projectId,
+      title: t.title,
+      notes: t.notes || '',
+      priority: t.priority,
+      due_date: emptyToNull(t.dueDate),
+      status: t.status,
+      lineup_order: t.lineupOrder == null ? null : t.lineupOrder,
+      updated_at: new Date().toISOString(),
+    };
+  }
+
+  // ── Sync status UI ──
+  let syncState = 'syncing'; // syncing | connected | error
+  let syncMessage = 'Connecting…';
+
+  function setSync(status, message) {
+    syncState = status;
+    syncMessage = message || (
+      status === 'connected' ? 'Connected' :
+      status === 'error' ? 'Error' : 'Syncing…'
+    );
+    const el = document.getElementById('sync-status');
+    if (!el) return;
+    el.className = 'sync-status ' + status;
+    el.querySelector('.label').textContent = syncMessage;
+    el.title = syncMessage;
+  }
+
+  function cacheWrite() {
+    try {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        projects: state.projects,
+        tasks: state.tasks,
+        savedAt: Date.now(),
+      }));
+      if (state.selectedProjectId) {
+        localStorage.setItem(SELECTED_KEY, state.selectedProjectId);
+      }
+    } catch { /* ignore */ }
+  }
+
+  function cacheRead() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed.projects || !parsed.tasks) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  // ── Sample data (for empty DB) ──
+  function samplePayload() {
     return {
       projects: [
-        { id: p1, name: 'Website redesign', description: 'Refresh the marketing site and improve mobile experience.', status: 'active', clientName: 'Northwind Retail', branch: 'feature/marketing-refresh', targetDate: addDays(28) },
-        { id: p2, name: 'Design system', description: 'Shared components, tokens, and documentation.', status: 'active', clientName: 'Internal — Product', branch: 'main', targetDate: addDays(60) },
-        { id: p3, name: 'Admin & ops', description: 'Recurring admin tasks.', status: 'on-hold', clientName: 'Ops team', branch: '', targetDate: '' },
+        {
+          title: 'Website redesign',
+          description: 'Refresh the marketing site and improve mobile experience.',
+          status: 'active',
+          client_name: 'Northwind Retail',
+          branch: 'feature/marketing-refresh',
+          target_date: addDays(28),
+        },
+        {
+          title: 'Design system',
+          description: 'Shared components, tokens, and documentation.',
+          status: 'active',
+          client_name: 'Internal — Product',
+          branch: 'main',
+          target_date: addDays(60),
+        },
+        {
+          title: 'Admin & ops',
+          description: 'Recurring admin tasks.',
+          status: 'on_hold',
+          client_name: 'Ops team',
+          branch: '',
+          target_date: null,
+        },
       ],
-      tasks,
-      selectedProjectId: p1,
-      seeded: true,
+      // tasks keyed by project title for linking after insert
+      tasksByProject: {
+        'Website redesign': [
+          { title: 'Draft project brief', notes: 'Outline goals and success criteria.', priority: 'high', due_date: addDays(2), status: 'pending', lineup_order: 0 },
+          { title: 'Stakeholder kick-off', notes: '', priority: 'high', due_date: addDays(5), status: 'pending', lineup_order: 1 },
+          { title: 'Set up shared folder', notes: 'Invite the team.', priority: 'low', due_date: null, status: 'done', lineup_order: null },
+        ],
+        'Design system': [
+          { title: 'Review design mock-ups', notes: 'Focus on mobile layout.', priority: 'medium', due_date: addDays(1), status: 'pending', lineup_order: 2 },
+          { title: 'Write accessibility checklist', notes: '', priority: 'medium', due_date: addDays(7), status: 'pending', lineup_order: 3 },
+          { title: 'Pick colour palette', notes: 'Dark theme preferred.', priority: 'low', due_date: null, status: 'done', lineup_order: null },
+        ],
+        'Admin & ops': [
+          { title: 'File quarterly expenses', notes: '', priority: 'high', due_date: addDays(-1), status: 'pending', lineup_order: 4 },
+          { title: 'Renew domain', notes: 'Check auto-renew is on.', priority: 'low', due_date: addDays(14), status: 'pending', lineup_order: 5 },
+        ],
+      },
     };
   }
 
   // ── State ──
-  let state = load();
+  let state = {
+    projects: [],
+    tasks: [],
+    selectedProjectId: localStorage.getItem(SELECTED_KEY) || null,
+  };
 
-  function migrateProject(p) {
-    return {
-      ...p,
-      clientName: p.clientName ?? p.client ?? '',
-      branch: p.branch ?? '',
-      targetDate: p.targetDate ?? '',
-    };
+  async function fetchAll() {
+    setSync('syncing', 'Loading…');
+    const [projRes, taskRes] = await Promise.all([
+      supabase.from('projects').select('*').order('created_at', { ascending: true }),
+      supabase.from('tasks').select('*').order('lineup_order', { ascending: true, nullsFirst: false }),
+    ]);
+    if (projRes.error) throw projRes.error;
+    if (taskRes.error) throw taskRes.error;
+
+    state.projects = (projRes.data || []).map(mapProjectFromDb);
+    state.tasks = (taskRes.data || []).map(mapTaskFromDb);
+
+    if (!state.selectedProjectId || !state.projects.find((p) => p.id === state.selectedProjectId)) {
+      state.selectedProjectId = state.projects[0]?.id || null;
+    }
+
+    cacheWrite();
+    setSync('connected', 'Connected');
+    return state;
   }
 
-  function migrateState(parsed) {
-    parsed.projects = (parsed.projects || []).map(migrateProject);
-    return parsed;
+  async function seedIfEmpty() {
+    if (state.projects.length > 0) return false;
+    setSync('syncing', 'Seeding samples…');
+    const sample = samplePayload();
+    const { data: insertedProjects, error: pErr } = await supabase
+      .from('projects')
+      .insert(sample.projects)
+      .select();
+    if (pErr) throw pErr;
+
+    const titleToId = {};
+    (insertedProjects || []).forEach((row) => { titleToId[row.title] = row.id; });
+
+    const taskRows = [];
+    Object.entries(sample.tasksByProject).forEach(([title, tasks]) => {
+      const pid = titleToId[title];
+      if (!pid) return;
+      tasks.forEach((t) => {
+        taskRows.push({ ...t, project_id: pid });
+      });
+    });
+
+    if (taskRows.length) {
+      const { error: tErr } = await supabase.from('tasks').insert(taskRows);
+      if (tErr) throw tErr;
+    }
+    await fetchAll();
+    return true;
   }
 
-  function load() {
+  async function addSampleData() {
+    if (!confirm('Insert sample projects and tasks into Supabase? Existing data is kept.')) return;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return seedData();
-      const parsed = JSON.parse(raw);
-      if (!parsed.projects || !parsed.tasks) return seedData();
-      return migrateState(parsed);
-    } catch {
-      return seedData();
+      setSync('syncing', 'Adding samples…');
+      const sample = samplePayload();
+      // Prefix titles so they don't look like duplicates of existing
+      const stamp = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      sample.projects = sample.projects.map((p) => ({
+        ...p,
+        title: p.title + ' (sample ' + stamp + ')',
+      }));
+      const renamed = {};
+      sample.projects.forEach((p, i) => {
+        const old = Object.keys(sample.tasksByProject)[i];
+        renamed[p.title] = sample.tasksByProject[old];
+      });
+      sample.tasksByProject = renamed;
+
+      const { data: insertedProjects, error: pErr } = await supabase
+        .from('projects')
+        .insert(sample.projects)
+        .select();
+      if (pErr) throw pErr;
+
+      const titleToId = {};
+      (insertedProjects || []).forEach((row) => { titleToId[row.title] = row.id; });
+
+      const taskRows = [];
+      Object.entries(sample.tasksByProject).forEach(([title, tasks]) => {
+        const pid = titleToId[title];
+        if (!pid) return;
+        tasks.forEach((t) => taskRows.push({ ...t, project_id: pid }));
+      });
+      if (taskRows.length) {
+        const { error: tErr } = await supabase.from('tasks').insert(taskRows);
+        if (tErr) throw tErr;
+      }
+      await fetchAll();
+      render();
+      setSync('connected', 'Connected');
+    } catch (err) {
+      console.error(err);
+      setSync('error', 'Error: ' + (err.message || 'seed failed'));
     }
   }
 
-  function save() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  }
-
-  function resetSamples() {
-    if (!confirm('Clear all data and restore the sample projects and tasks?')) return;
-    state = seedData();
-    save();
-    render();
+  async function persistLineupOrders(changedTasks) {
+    // Batch update lineup_order for affected tasks
+    const updates = changedTasks.map((t) =>
+      supabase.from('tasks').update({
+        lineup_order: t.lineupOrder,
+        updated_at: new Date().toISOString(),
+      }).eq('id', t.id)
+    );
+    const results = await Promise.all(updates);
+    const err = results.find((r) => r.error)?.error;
+    if (err) throw err;
   }
 
   // ── Stats ──
@@ -1076,20 +1326,27 @@
   function normaliseLineupOrders(orderedIds) {
     const openIds = new Set(state.tasks.filter((t) => t.status === 'pending').map((t) => t.id));
     orderedIds = orderedIds.filter((id) => openIds.has(id));
+    const changed = [];
     state.tasks.forEach((t) => {
+      let next;
       if (t.status !== 'pending') {
-        t.lineupOrder = null;
-        return;
+        next = null;
+      } else {
+        const idx = orderedIds.indexOf(t.id);
+        next = idx === -1 ? null : idx;
       }
-      const idx = orderedIds.indexOf(t.id);
-      t.lineupOrder = idx === -1 ? null : idx;
+      if (t.lineupOrder !== next) {
+        t.lineupOrder = next;
+        changed.push(t);
+      }
     });
+    return changed;
   }
 
-  function ensureLineupSeeded() {
+  async function ensureLineupSeeded() {
     const open = state.tasks.filter((t) => t.status === 'pending');
     const anyOrdered = open.some((t) => t.lineupOrder != null);
-    if (anyOrdered) return;
+    if (anyOrdered || open.length === 0) return;
     const sorted = open.slice().sort((a, b) => {
       const pa = PRIORITY_ORDER[a.priority] ?? 9;
       const pb = PRIORITY_ORDER[b.priority] ?? 9;
@@ -1100,6 +1357,28 @@
       return a.title.localeCompare(b.title);
     });
     sorted.forEach((t, i) => { t.lineupOrder = i; });
+    try {
+      setSync('syncing', 'Syncing…');
+      await persistLineupOrders(sorted);
+      cacheWrite();
+      setSync('connected', 'Connected');
+    } catch (err) {
+      console.error(err);
+      setSync('error', 'Error: lineup');
+    }
+  }
+
+  async function runSync(label, fn) {
+    try {
+      setSync('syncing', label || 'Syncing…');
+      await fn();
+      cacheWrite();
+      setSync('connected', 'Connected');
+    } catch (err) {
+      console.error(err);
+      setSync('error', 'Error: ' + (err.message || 'sync failed'));
+      throw err;
+    }
   }
 
   // ── CRUD: projects ──
@@ -1108,20 +1387,31 @@
       title: 'New project',
       fields: projectFields({ name: 'New project', description: '', status: 'active', clientName: '', branch: '', targetDate: '' }),
       onSubmit(data) {
-        const id = uid();
-        state.projects.push({
-          id,
+        const draft = {
           name: data.name.trim() || 'Untitled project',
           description: data.description.trim(),
           status: data.status,
           clientName: (data.clientName || '').trim(),
           branch: (data.branch || '').trim(),
           targetDate: data.targetDate || '',
-        });
-        state.selectedProjectId = id;
-        save();
-        render();
-        showPane('main');
+        };
+        (async () => {
+          try {
+            await runSync('Saving…', async () => {
+              const { data: row, error } = await supabase
+                .from('projects')
+                .insert(projectToDb(draft))
+                .select()
+                .single();
+              if (error) throw error;
+              const mapped = mapProjectFromDb(row);
+              state.projects.push(mapped);
+              state.selectedProjectId = mapped.id;
+            });
+            render();
+            showPane('main');
+          } catch { /* status already set */ }
+        })();
       },
     });
   }
@@ -1133,14 +1423,28 @@
       title: 'Edit project',
       fields: projectFields(p),
       onSubmit(data) {
+        const prev = { ...p };
         p.name = data.name.trim() || 'Untitled project';
         p.description = data.description.trim();
         p.status = data.status;
         p.clientName = (data.clientName || '').trim();
         p.branch = (data.branch || '').trim();
         p.targetDate = data.targetDate || '';
-        save();
         render();
+        (async () => {
+          try {
+            await runSync('Saving…', async () => {
+              const { error } = await supabase
+                .from('projects')
+                .update(projectToDb(p))
+                .eq('id', id);
+              if (error) throw error;
+            });
+          } catch {
+            Object.assign(p, prev);
+            render();
+          }
+        })();
       },
     });
   }
@@ -1149,18 +1453,33 @@
     const p = getProject(id);
     if (!p) return;
     if (!confirm(`Delete project “${p.name}” and all its tasks?`)) return;
+    const prevProjects = state.projects.slice();
+    const prevTasks = state.tasks.slice();
+    const prevSelected = state.selectedProjectId;
     state.projects = state.projects.filter((x) => x.id !== id);
     state.tasks = state.tasks.filter((t) => t.projectId !== id);
     if (state.selectedProjectId === id) {
       state.selectedProjectId = state.projects[0]?.id || null;
     }
-    save();
     render();
+    (async () => {
+      try {
+        await runSync('Deleting…', async () => {
+          const { error } = await supabase.from('projects').delete().eq('id', id);
+          if (error) throw error;
+        });
+      } catch {
+        state.projects = prevProjects;
+        state.tasks = prevTasks;
+        state.selectedProjectId = prevSelected;
+        render();
+      }
+    })();
   }
 
   function selectProject(id) {
     state.selectedProjectId = id;
-    save();
+    try { localStorage.setItem(SELECTED_KEY, id); } catch { /* ignore */ }
     render();
     showPane('main');
   }
@@ -1217,8 +1536,7 @@
       onSubmit(data) {
         const open = openTasksSorted();
         const maxOrder = open.reduce((m, t) => Math.max(m, t.lineupOrder ?? -1), -1);
-        state.tasks.push({
-          id: uid(),
+        const draft = {
           projectId,
           title: data.title.trim() || 'Untitled task',
           notes: data.notes.trim(),
@@ -1226,12 +1544,23 @@
           dueDate: data.dueDate || '',
           status: data.status,
           lineupOrder: data.status === 'pending' ? maxOrder + 1 : null,
-        });
-        save();
-        render();
+        };
+        (async () => {
+          try {
+            await runSync('Saving…', async () => {
+              const { data: row, error } = await supabase
+                .from('tasks')
+                .insert(taskToDb(draft))
+                .select()
+                .single();
+              if (error) throw error;
+              state.tasks.push(mapTaskFromDb(row));
+            });
+            render();
+          } catch { /* status set */ }
+        })();
       },
     });
-    // Focus title and leave empty for typing (default placeholder via empty)
     setTimeout(() => {
       const input = document.getElementById('f-title');
       if (input) {
@@ -1244,9 +1573,7 @@
   function quickAddTask(projectId) {
     const open = openTasksSorted();
     const maxOrder = open.reduce((m, t) => Math.max(m, t.lineupOrder ?? -1), -1);
-    const id = uid();
-    state.tasks.push({
-      id,
+    const draft = {
       projectId,
       title: 'New task',
       notes: '',
@@ -1254,10 +1581,25 @@
       dueDate: '',
       status: 'pending',
       lineupOrder: maxOrder + 1,
-    });
-    save();
-    render();
-    editTask(id);
+    };
+    (async () => {
+      try {
+        let newId = null;
+        await runSync('Saving…', async () => {
+          const { data: row, error } = await supabase
+            .from('tasks')
+            .insert(taskToDb(draft))
+            .select()
+            .single();
+          if (error) throw error;
+          const mapped = mapTaskFromDb(row);
+          state.tasks.push(mapped);
+          newId = mapped.id;
+        });
+        render();
+        if (newId) editTask(newId);
+      } catch { /* status set */ }
+    })();
   }
 
   function editTask(id) {
@@ -1267,6 +1609,7 @@
       title: 'Edit task',
       fields: taskFields(t),
       onSubmit(data) {
+        const prev = { ...t };
         const wasPending = t.status === 'pending';
         t.title = data.title.trim() || 'Untitled task';
         t.notes = data.notes.trim();
@@ -1276,12 +1619,22 @@
         if (t.status === 'done') {
           t.lineupOrder = null;
         } else if (!wasPending && t.status === 'pending') {
-          const open = openTasksSorted();
+          const open = openTasksSorted().filter((x) => x.id !== t.id);
           const maxOrder = open.reduce((m, x) => Math.max(m, x.lineupOrder ?? -1), -1);
           t.lineupOrder = maxOrder + 1;
         }
-        save();
         render();
+        (async () => {
+          try {
+            await runSync('Saving…', async () => {
+              const { error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', id);
+              if (error) throw error;
+            });
+          } catch {
+            Object.assign(t, prev);
+            render();
+          }
+        })();
       },
     });
   }
@@ -1290,25 +1643,47 @@
     const t = state.tasks.find((x) => x.id === id);
     if (!t) return;
     if (!confirm(`Delete task “${t.title}”?`)) return;
+    const prev = state.tasks.slice();
     state.tasks = state.tasks.filter((x) => x.id !== id);
-    save();
     render();
+    (async () => {
+      try {
+        await runSync('Deleting…', async () => {
+          const { error } = await supabase.from('tasks').delete().eq('id', id);
+          if (error) throw error;
+        });
+      } catch {
+        state.tasks = prev;
+        render();
+      }
+    })();
   }
 
   function toggleTask(id) {
     const t = state.tasks.find((x) => x.id === id);
     if (!t) return;
+    const prev = { ...t };
     if (t.status === 'pending') {
       t.status = 'done';
       t.lineupOrder = null;
     } else {
       t.status = 'pending';
-      const open = openTasksSorted();
+      const open = openTasksSorted().filter((x) => x.id !== t.id);
       const maxOrder = open.reduce((m, x) => Math.max(m, x.lineupOrder ?? -1), -1);
       t.lineupOrder = maxOrder + 1;
     }
-    save();
     render();
+    (async () => {
+      try {
+        await runSync('Saving…', async () => {
+          const { error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', id);
+          if (error) throw error;
+        });
+      } catch {
+        Object.assign(t, prev);
+        render();
+      }
+    })();
   }
 
   function taskFields(t) {
@@ -1394,9 +1769,18 @@
     const swap = idx + dir;
     if (swap < 0 || swap >= list.length) return;
     [list[idx], list[swap]] = [list[swap], list[idx]];
-    normaliseLineupOrders(list);
-    save();
+    const changed = normaliseLineupOrders(list);
     render();
+    (async () => {
+      try {
+        await runSync('Syncing…', async () => {
+          await persistLineupOrders(changed.length ? changed : state.tasks.filter((t) => list.includes(t.id)));
+        });
+      } catch {
+        await fetchAll().catch(() => {});
+        render();
+      }
+    })();
   }
 
   let dragId = null;
@@ -1439,9 +1823,18 @@
     if (from < 0 || to < 0) return;
     list.splice(from, 1);
     list.splice(to, 0, sourceId);
-    normaliseLineupOrders(list);
-    save();
+    const changed = normaliseLineupOrders(list);
     render();
+    (async () => {
+      try {
+        await runSync('Syncing…', async () => {
+          await persistLineupOrders(changed.length ? changed : state.tasks.filter((t) => list.includes(t.id)));
+        });
+      } catch {
+        await fetchAll().catch(() => {});
+        render();
+      }
+    })();
   }
 
   // ── Mobile panes ──
@@ -1463,7 +1856,7 @@
   }
 
   // ── Render ──
-  let taskFilter = 'all'; // all | pending | done
+  let taskFilter = 'all';
 
   function renderProgressCard(container, stats, label) {
     container.innerHTML = `
@@ -1546,7 +1939,6 @@
     if (taskFilter === 'pending') tasks = all.filter((t) => t.status === 'pending');
     if (taskFilter === 'done') tasks = all.filter((t) => t.status === 'done');
 
-    // Sort: pending first, then priority, then due
     tasks = tasks.slice().sort((a, b) => {
       if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
       const pa = PRIORITY_ORDER[a.priority] ?? 9;
@@ -1659,7 +2051,6 @@
   }
 
   function renderLineup() {
-    ensureLineupSeeded();
     const list = document.getElementById('lineup-list');
     const items = openTasksSorted();
 
@@ -1715,7 +2106,7 @@
 
   // ── Event delegation ──
   document.getElementById('btn-add-project').addEventListener('click', addProject);
-  document.getElementById('btn-reset').addEventListener('click', resetSamples);
+  document.getElementById('btn-samples').addEventListener('click', addSampleData);
 
   document.getElementById('project-list').addEventListener('click', (e) => {
     const actionBtn = e.target.closest('[data-action]');
@@ -1765,10 +2156,40 @@
   });
 
   // Init
-  ensureLineupSeeded();
-  save();
-  render();
+  async function init() {
+    // Show cache immediately if present
+    const cached = cacheRead();
+    if (cached) {
+      state.projects = cached.projects;
+      state.tasks = cached.tasks;
+      if (!state.selectedProjectId || !state.projects.find((p) => p.id === state.selectedProjectId)) {
+        state.selectedProjectId = state.projects[0]?.id || null;
+      }
+      render();
+      setSync('syncing', 'Refreshing…');
+    } else {
+      setSync('syncing', 'Connecting…');
+      render();
+    }
+
+    try {
+      await fetchAll();
+      if (state.projects.length === 0) {
+        await seedIfEmpty();
+      }
+      await ensureLineupSeeded();
+      render();
+      setSync('connected', 'Connected');
+    } catch (err) {
+      console.error(err);
+      setSync('error', 'Error: ' + (err.message || 'connection failed'));
+      if (!cached) render();
+    }
+  }
+
+  init();
 })();
-  </script>
+</script>
+
 </body>
 </html>
