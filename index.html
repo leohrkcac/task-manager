@@ -943,6 +943,12 @@
       color: var(--text-muted);
       margin-bottom: 1.15rem;
     }
+    .auth-card .auth-note {
+      margin: 0.85rem 0 0;
+      font-size: 0.8rem;
+      line-height: 1.45;
+      color: var(--text-dim);
+    }
     .auth-card .form-group { margin-bottom: 0.85rem; }
     .auth-card .btn-block {
       width: 100%;
@@ -1130,6 +1136,7 @@
           ·
           <button type="button" id="goto-signin-from-otp">Back to sign in</button>
         </p>
+        <p class="auth-note">If your email only has a Confirm link, open that link on this device after Site URL is set to this site.</p>
       </div>
     </div>
   </div>
@@ -1244,7 +1251,7 @@
       return 'Those details do not match an account. Check your email and password, or create an account.';
     }
     if (m.includes('email not confirmed') || m.includes('not confirmed')) {
-      return 'Please verify your email with the 6-digit code before signing in.';
+      return 'Please verify your email (open the Confirm link in your email, or enter the 6-digit code if you have one) before signing in.';
     }
     if (m.includes('user already registered') || m.includes('already been registered')) {
       return 'An account with this email already exists. Sign in instead, or verify with your code.';
@@ -1376,7 +1383,14 @@
       return false;
     }
     try {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: {
+          detectSessionInUrl: true,
+          flowType: 'pkce',
+          persistSession: true,
+          autoRefreshToken: true,
+        },
+      });
       supabaseReady = true;
       setAuthFormsEnabled(true);
       return true;
@@ -1388,6 +1402,148 @@
       setAuthFormsEnabled(false, 'Supabase client failed to start');
       return false;
     }
+  }
+
+  function clearAuthParamsFromUrl() {
+    try {
+      const url = new URL(window.location.href);
+      const keys = [
+        'code', 'token_hash', 'type', 'error', 'error_code', 'error_description',
+        'access_token', 'refresh_token', 'expires_in', 'expires_at', 'token_type',
+      ];
+      let changed = false;
+      keys.forEach((k) => {
+        if (url.searchParams.has(k)) {
+          url.searchParams.delete(k);
+          changed = true;
+        }
+      });
+      const hash = url.hash ? url.hash.slice(1) : '';
+      if (hash && /(access_token|refresh_token|type=|error=)/.test(hash)) {
+        url.hash = '';
+        changed = true;
+      }
+      if (changed) {
+        const next = url.pathname + url.search + (url.hash || '');
+        history.replaceState({}, document.title, next || url.pathname);
+      }
+    } catch (err) {
+      console.warn(err);
+    }
+  }
+
+  function parseAuthCallbackFromUrl() {
+    const out = {
+      code: null,
+      token_hash: null,
+      type: null,
+      hasHashTokens: false,
+      error: null,
+      error_description: null,
+    };
+    try {
+      const q = new URLSearchParams(window.location.search);
+      out.code = q.get('code');
+      out.token_hash = q.get('token_hash');
+      out.type = q.get('type');
+      out.error = q.get('error') || q.get('error_code');
+      out.error_description = q.get('error_description');
+
+      if (window.location.hash && window.location.hash.length > 1) {
+        const h = new URLSearchParams(window.location.hash.slice(1));
+        if (h.get('access_token') || h.get('refresh_token')) {
+          out.hasHashTokens = true;
+        }
+        if (!out.type && h.get('type')) out.type = h.get('type');
+        if (!out.error && (h.get('error') || h.get('error_code'))) {
+          out.error = h.get('error') || h.get('error_code');
+          out.error_description = h.get('error_description');
+        }
+        if (!out.code && h.get('code')) out.code = h.get('code');
+        if (!out.token_hash && h.get('token_hash')) out.token_hash = h.get('token_hash');
+      }
+    } catch (err) {
+      console.warn(err);
+    }
+    return out;
+  }
+
+  function urlHasAuthCallback() {
+    const cb = parseAuthCallbackFromUrl();
+    return !!(cb.code || cb.token_hash || cb.hasHashTokens || cb.error);
+  }
+
+  /**
+   * Complete email-confirm / magic-link / recovery redirects from GitHub Pages.
+   * Handles PKCE (?code=), token_hash+type, and hash tokens (access_token).
+   * With detectSessionInUrl, getSession often finishes hash/code; we still
+   * exchange explicitly when needed and always scrub the URL afterwards.
+   */
+  async function completeAuthFromUrl() {
+    const cb = parseAuthCallbackFromUrl();
+    if (!cb.code && !cb.token_hash && !cb.hasHashTokens && !cb.error) {
+      return { handled: false, session: null };
+    }
+
+    if (cb.error) {
+      const msg = cb.error_description || cb.error || 'Email confirmation failed.';
+      clearAuthParamsFromUrl();
+      return { handled: true, session: null, errorMessage: msg };
+    }
+
+    // Query-style confirm links: token_hash + type (signup, recovery, email, etc.)
+    if (cb.token_hash && cb.type) {
+      const { data, error } = await supabase.auth.verifyOtp({
+        token_hash: cb.token_hash,
+        type: cb.type,
+      });
+      clearAuthParamsFromUrl();
+      if (error) throw error;
+      return { handled: true, session: data.session || null };
+    }
+
+    // PKCE: ?code=...
+    if (cb.code) {
+      // Prefer explicit exchange; if already consumed by detectSessionInUrl, fall back to getSession
+      let session = null;
+      const exchanged = await supabase.auth.exchangeCodeForSession(cb.code);
+      if (exchanged.error) {
+        const { data: { session: existing } } = await supabase.auth.getSession();
+        if (existing) {
+          session = existing;
+        } else {
+          clearAuthParamsFromUrl();
+          throw exchanged.error;
+        }
+      } else {
+        session = exchanged.data.session || null;
+      }
+      clearAuthParamsFromUrl();
+      return { handled: true, session };
+    }
+
+    // Implicit / hash: #access_token=...&refresh_token=...&type=signup
+    if (cb.hasHashTokens) {
+      let { data: { session: existing } } = await supabase.auth.getSession();
+      if (!existing) {
+        const h = new URLSearchParams(window.location.hash.slice(1));
+        const access_token = h.get('access_token');
+        const refresh_token = h.get('refresh_token');
+        if (access_token && refresh_token) {
+          const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+          if (error) {
+            clearAuthParamsFromUrl();
+            throw error;
+          }
+          existing = data.session || null;
+        }
+      }
+      clearAuthParamsFromUrl();
+      return { handled: true, session: existing || null };
+    }
+
+    clearAuthParamsFromUrl();
+    return { handled: false, session: null };
   }
 
   function setLoggedOutUI() {
@@ -2693,7 +2849,7 @@
         setAuthMsg('Account created. You are signed in.', 'success');
         // onAuthStateChange will boot the app
       } else {
-        setAuthMsg('We have sent a 6-digit code to your email. Enter it below to verify.', 'info');
+        setAuthMsg('Check your email to verify. If you received a 6-digit code, enter it below. If you only have a Confirm link, open that link on this site.', 'info');
         showAuthView('otp');
       }
     } catch (err) {
@@ -2915,6 +3071,27 @@
       });
       authListenerReady = true;
 
+      // Email Confirm / magic-link / recovery redirects land here with
+      // ?code=, ?token_hash=&type=, or #access_token=… (Site URL = GitHub Pages).
+      if (urlHasAuthCallback()) {
+        setSync('syncing', 'Confirming email…');
+        setAuthMsg('Confirming your email…', 'info');
+        try {
+          const result = await completeAuthFromUrl();
+          if (result.errorMessage) {
+            setAuthMsg(result.errorMessage, 'error');
+          } else if (result.handled && result.session) {
+            setAuthMsg('Email confirmed. Loading your tasks…', 'success');
+          } else if (result.handled) {
+            setAuthMsg('Email confirmed. You can sign in now.', 'success');
+          }
+        } catch (confirmErr) {
+          console.error(confirmErr);
+          setAuthMsg(friendlyAuthError(confirmErr), 'error');
+          clearAuthParamsFromUrl();
+        }
+      }
+
       const { data: { session: existing }, error } = await supabase.auth.getSession();
       if (error) {
         console.error(error);
@@ -2922,6 +3099,8 @@
       }
       // Apply immediately; listener may also fire — handleSession serializes boots.
       await handleSession(existing);
+      // Scrub leftover auth params even if detectSessionInUrl already consumed them
+      if (urlHasAuthCallback()) clearAuthParamsFromUrl();
     } catch (err) {
       console.error(err);
       setAuthMsg('Could not load Supabase library. Check your network or ad-blocker.', 'error');
