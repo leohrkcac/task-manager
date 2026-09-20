@@ -1415,6 +1415,7 @@
       font-size: 0.8rem;
       color: var(--text-muted);
     }
+    .header-user .role-badge { display: none !important; }
     .header-user .user-email {
       max-width: 180px;
       overflow: hidden;
@@ -1804,7 +1805,7 @@
           Pending Approval
         </button>
         <div class="header-user" id="header-user" hidden>
-          <span class="role-badge member" id="user-role-badge" title="Your role">Member</span>
+          <span class="role-badge member" id="user-role-badge" title="Your role" hidden>Member</span>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-signout" title="Sign out">Sign out</button>
         </div>
       </div>
@@ -3459,6 +3460,7 @@
       badge.title = superUser
         ? 'Super user — full access, manage groups, approve deletes'
         : 'Member — full CRUD inside your assigned groups/departments';
+      badge.hidden = true; // role chip hidden in header UI
     }
     if (approvalsBtn) {
       approvalsBtn.hidden = !isSuperUser();
