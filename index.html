@@ -880,14 +880,255 @@
       0%, 100% { opacity: 1; }
       50% { opacity: 0.35; }
     }
+
+    /* ── Auth gate ── */
+    .auth-gate {
+      display: none;
+      min-height: 100vh;
+      min-height: 100dvh;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      background:
+        radial-gradient(ellipse at 20% 10%, rgba(91, 141, 239, 0.12), transparent 50%),
+        radial-gradient(ellipse at 80% 90%, rgba(61, 214, 140, 0.08), transparent 45%),
+        var(--bg);
+    }
+    body.auth-only .auth-gate { display: flex; }
+    body.auth-only .app { display: none; }
+    body.auth-only .modal-backdrop { display: none !important; }
+
+    .auth-card {
+      width: 100%;
+      max-width: 400px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: calc(var(--radius) + 4px);
+      box-shadow: var(--shadow);
+      padding: 1.75rem 1.5rem 1.5rem;
+    }
+    .auth-card .auth-brand {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      margin-bottom: 1.25rem;
+    }
+    .auth-card .auth-brand .logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), #3dd68c);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 1rem;
+      color: #0f1117;
+    }
+    .auth-card .auth-brand h1 {
+      font-size: 1.2rem;
+      font-weight: 650;
+      letter-spacing: -0.02em;
+    }
+    .auth-card .auth-brand p {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .auth-card h2 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+    .auth-card .auth-lead {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 1.15rem;
+    }
+    .auth-card .form-group { margin-bottom: 0.85rem; }
+    .auth-card .btn-block {
+      width: 100%;
+      justify-content: center;
+      margin-top: 0.35rem;
+    }
+    .auth-card .auth-switch {
+      margin-top: 1.1rem;
+      text-align: center;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .auth-card .auth-switch button {
+      color: var(--accent);
+      font-weight: 550;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+    .auth-card .auth-switch button:hover { color: #7aa2f7; }
+    .auth-msg {
+      font-size: 0.85rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.9rem;
+      display: none;
+    }
+    .auth-msg.show { display: block; }
+    .auth-msg.error {
+      background: var(--danger-soft);
+      color: var(--danger);
+      border: 1px solid rgba(240, 113, 120, 0.35);
+    }
+    .auth-msg.info {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid rgba(91, 141, 239, 0.35);
+    }
+    .auth-msg.success {
+      background: var(--success-soft);
+      color: var(--success);
+      border: 1px solid rgba(61, 214, 140, 0.35);
+    }
+    .otp-inputs {
+      display: flex;
+      gap: 0.45rem;
+      justify-content: center;
+      margin: 0.5rem 0 1rem;
+    }
+    .otp-inputs input {
+      width: 2.5rem;
+      height: 2.75rem;
+      text-align: center;
+      font-size: 1.25rem;
+      font-family: var(--mono);
+      font-weight: 600;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+    .otp-inputs input:focus {
+      border-color: var(--border-focus);
+      outline: none;
+      box-shadow: 0 0 0 3px var(--accent-soft);
+    }
+    .auth-email-chip {
+      display: inline-block;
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 0.2rem 0.65rem;
+      margin-bottom: 0.75rem;
+    }
+    .header-user {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .header-user .user-email {
+      max-width: 180px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-family: var(--mono);
+      font-size: 0.75rem;
+    }
+    @media (max-width: 720px) {
+      .header-user .user-email { max-width: 100px; }
+    }
+
     .header-actions {
       align-items: center;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
-<body>
-  <div class="app" id="app">
+<body class="auth-only">
+  <div class="auth-gate" id="auth-gate" aria-label="Authentication">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <span class="logo" aria-hidden="true">✓</span>
+        <div>
+          <h1>Task Manager</h1>
+          <p>Sign in to manage your projects</p>
+        </div>
+      </div>
+
+      <div id="auth-msg" class="auth-msg" role="alert"></div>
+
+      <!-- Sign in -->
+      <div id="auth-view-signin">
+        <h2>Sign in</h2>
+        <p class="auth-lead">Use your email and password. Accounts must be verified first.</p>
+        <form id="form-signin" autocomplete="on">
+          <div class="form-group">
+            <label for="signin-email">Email</label>
+            <input id="signin-email" name="email" type="email" required autocomplete="username" maxlength="254" />
+          </div>
+          <div class="form-group">
+            <label for="signin-password">Password</label>
+            <input id="signin-password" name="password" type="password" required autocomplete="current-password" minlength="6" maxlength="72" />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="btn-signin">Sign in</button>
+        </form>
+        <p class="auth-switch">
+          New here?
+          <button type="button" id="goto-signup">Create an account</button>
+        </p>
+      </div>
+
+      <!-- Create account -->
+      <div id="auth-view-signup" hidden>
+        <h2>Create account</h2>
+        <p class="auth-lead">We will email you a 6-digit code to verify your address.</p>
+        <form id="form-signup" autocomplete="on">
+          <div class="form-group">
+            <label for="signup-email">Email</label>
+            <input id="signup-email" name="email" type="email" required autocomplete="username" maxlength="254" />
+          </div>
+          <div class="form-group">
+            <label for="signup-password">Password</label>
+            <input id="signup-password" name="password" type="password" required autocomplete="new-password" minlength="6" maxlength="72" />
+          </div>
+          <div class="form-group">
+            <label for="signup-password2">Confirm password</label>
+            <input id="signup-password2" name="password2" type="password" required autocomplete="new-password" minlength="6" maxlength="72" />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="btn-signup">Create account</button>
+        </form>
+        <p class="auth-switch">
+          Already have an account?
+          <button type="button" id="goto-signin">Sign in</button>
+        </p>
+      </div>
+
+      <!-- OTP -->
+      <div id="auth-view-otp" hidden>
+        <h2>Enter verification code</h2>
+        <p class="auth-lead">Check your inbox for a 6-digit code sent to:</p>
+        <div class="auth-email-chip" id="otp-email-display"></div>
+        <form id="form-otp" autocomplete="one-time-code">
+          <div class="otp-inputs" id="otp-inputs" aria-label="Six-digit verification code">
+            <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 1" />
+            <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 2" />
+            <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 3" />
+            <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 4" />
+            <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 5" />
+            <input type="text" inputmode="numeric" maxlength="1" pattern="[0-9]" aria-label="Digit 6" />
+          </div>
+          <button type="submit" class="btn btn-primary btn-block" id="btn-verify-otp">Verify and continue</button>
+        </form>
+        <p class="auth-switch">
+          Didn’t get a code?
+          <button type="button" id="btn-resend-otp">Resend code</button>
+          ·
+          <button type="button" id="goto-signin-from-otp">Back to sign in</button>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <div class="app" id="app" hidden>
     <header class="header">
       <h1>
         <span class="logo" aria-hidden="true">✓</span>
@@ -901,6 +1142,10 @@
         <button type="button" class="btn btn-ghost btn-sm" id="btn-samples" title="Insert demo projects and tasks into Supabase">
           Add sample data
         </button>
+        <div class="header-user" id="header-user" hidden>
+          <span class="user-email" id="user-email" title=""></span>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-signout" title="Sign out">Sign out</button>
+        </div>
       </div>
     </header>
 
@@ -955,12 +1200,112 @@
 
   const SUPABASE_URL = 'https://lxktapoqxwpwlioxkngn.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx4a3RhcG9xeHdwd2xpb3hrbWduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk4Njk5NzEsImV4cCI6MjEwNTQ0NTk3MX0.uCgL-156utwsP6jg1f_ftGPWxFZtZTU01h1MflXl96Y';
-  const CACHE_KEY = 'project-task-tracker:cache:v2';
-  const SELECTED_KEY = 'project-task-tracker:selected';
+  const CACHE_KEY_BASE = 'project-task-tracker:cache:v3';
+  const SELECTED_KEY_BASE = 'project-task-tracker:selected:v3';
   const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
   const STATUS_LABELS = { active: 'Active', 'on-hold': 'On hold', done: 'Done' };
 
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ── Auth state ──
+  let session = null;
+  let authView = 'signin'; // signin | signup | otp
+  let pendingOtpEmail = '';
+  let pendingOtpType = 'signup'; // signup | email
+  let appBooted = false;
+  let authListenerReady = false;
+
+  function currentUserId() {
+    return session?.user?.id || null;
+  }
+
+  function cacheKey() {
+    const uid = currentUserId() || 'anon';
+    return CACHE_KEY_BASE + ':' + uid;
+  }
+
+  function selectedKey() {
+    const uid = currentUserId() || 'anon';
+    return SELECTED_KEY_BASE + ':' + uid;
+  }
+
+  function friendlyAuthError(err) {
+    const raw = (err && (err.message || err.error_description || String(err))) || 'Something went wrong';
+    const m = raw.toLowerCase();
+    if (m.includes('invalid login') || m.includes('invalid credentials')) {
+      return 'Those details do not match an account. Check your email and password, or create an account.';
+    }
+    if (m.includes('email not confirmed') || m.includes('not confirmed')) {
+      return 'Please verify your email with the 6-digit code before signing in.';
+    }
+    if (m.includes('user already registered') || m.includes('already been registered')) {
+      return 'An account with this email already exists. Sign in instead, or verify with your code.';
+    }
+    if (m.includes('otp') && (m.includes('expired') || m.includes('invalid'))) {
+      return 'That code is invalid or has expired. Request a new one and try again.';
+    }
+    if (m.includes('rate limit') || m.includes('too many')) {
+      return 'Too many attempts. Please wait a moment and try again.';
+    }
+    if (m.includes('network') || m.includes('fetch')) {
+      return 'Could not reach Supabase. Check your connection and try again.';
+    }
+    return raw;
+  }
+
+  function setAuthMsg(text, kind) {
+    const el = document.getElementById('auth-msg');
+    if (!el) return;
+    if (!text) {
+      el.className = 'auth-msg';
+      el.textContent = '';
+      return;
+    }
+    el.className = 'auth-msg show ' + (kind || 'info');
+    el.textContent = text;
+  }
+
+  function showAuthView(view) {
+    authView = view;
+    document.getElementById('auth-view-signin').hidden = view !== 'signin';
+    document.getElementById('auth-view-signup').hidden = view !== 'signup';
+    document.getElementById('auth-view-otp').hidden = view !== 'otp';
+    if (view === 'otp') {
+      document.getElementById('otp-email-display').textContent = pendingOtpEmail || '';
+      const inputs = document.querySelectorAll('#otp-inputs input');
+      inputs.forEach((inp) => { inp.value = ''; });
+      if (inputs[0]) inputs[0].focus();
+    }
+  }
+
+  function setLoggedOutUI() {
+    document.body.classList.add('auth-only');
+    const app = document.getElementById('app');
+    if (app) app.hidden = true;
+    const hu = document.getElementById('header-user');
+    if (hu) hu.hidden = true;
+    showAuthView(authView === 'otp' ? 'otp' : 'signin');
+  }
+
+  function setLoggedInUI() {
+    document.body.classList.remove('auth-only');
+    const app = document.getElementById('app');
+    if (app) app.hidden = false;
+    const email = session?.user?.email || '';
+    const emailEl = document.getElementById('user-email');
+    const hu = document.getElementById('header-user');
+    if (emailEl) {
+      emailEl.textContent = email;
+      emailEl.title = email;
+    }
+    if (hu) hu.hidden = false;
+  }
+
+  function withUserId(row) {
+    const uid = currentUserId();
+    if (!uid) throw new Error('You must be signed in to save data.');
+    return { ...row, user_id: uid };
+  }
 
   // ── Helpers ──
   const todayISO = () => {
@@ -1095,27 +1440,35 @@
 
   function cacheWrite() {
     try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
+      localStorage.setItem(cacheKey(), JSON.stringify({
         projects: state.projects,
         tasks: state.tasks,
         savedAt: Date.now(),
+        userId: currentUserId(),
       }));
       if (state.selectedProjectId) {
-        localStorage.setItem(SELECTED_KEY, state.selectedProjectId);
+        localStorage.setItem(selectedKey(), state.selectedProjectId);
       }
     } catch { /* ignore */ }
   }
 
   function cacheRead() {
     try {
-      const raw = localStorage.getItem(CACHE_KEY);
+      const raw = localStorage.getItem(cacheKey());
       if (!raw) return null;
       const parsed = JSON.parse(raw);
       if (!parsed.projects || !parsed.tasks) return null;
+      if (parsed.userId && currentUserId() && parsed.userId !== currentUserId()) return null;
       return parsed;
     } catch {
       return null;
     }
+  }
+
+  function clearLocalUserData() {
+    state.projects = [];
+    state.tasks = [];
+    state.selectedProjectId = null;
   }
 
   // ── Sample data (for empty DB) ──
@@ -1171,8 +1524,16 @@
   let state = {
     projects: [],
     tasks: [],
-    selectedProjectId: localStorage.getItem(SELECTED_KEY) || null,
+    selectedProjectId: null,
   };
+
+  function loadSelectedProjectId() {
+    try {
+      state.selectedProjectId = localStorage.getItem(selectedKey()) || null;
+    } catch {
+      state.selectedProjectId = null;
+    }
+  }
 
   async function fetchAll() {
     setSync('syncing', 'Loading…');
@@ -1199,9 +1560,10 @@
     if (state.projects.length > 0) return false;
     setSync('syncing', 'Seeding samples…');
     const sample = samplePayload();
+    const projectRows = sample.projects.map((p) => withUserId(p));
     const { data: insertedProjects, error: pErr } = await supabase
       .from('projects')
-      .insert(sample.projects)
+      .insert(projectRows)
       .select();
     if (pErr) throw pErr;
 
@@ -1213,7 +1575,7 @@
       const pid = titleToId[title];
       if (!pid) return;
       tasks.forEach((t) => {
-        taskRows.push({ ...t, project_id: pid });
+        taskRows.push(withUserId({ ...t, project_id: pid }));
       });
     });
 
@@ -1245,7 +1607,7 @@
 
       const { data: insertedProjects, error: pErr } = await supabase
         .from('projects')
-        .insert(sample.projects)
+        .insert(sample.projects.map((p) => withUserId(p)))
         .select();
       if (pErr) throw pErr;
 
@@ -1256,7 +1618,7 @@
       Object.entries(sample.tasksByProject).forEach(([title, tasks]) => {
         const pid = titleToId[title];
         if (!pid) return;
-        tasks.forEach((t) => taskRows.push({ ...t, project_id: pid }));
+        tasks.forEach((t) => taskRows.push(withUserId({ ...t, project_id: pid })));
       });
       if (taskRows.length) {
         const { error: tErr } = await supabase.from('tasks').insert(taskRows);
@@ -1400,7 +1762,7 @@
             await runSync('Saving…', async () => {
               const { data: row, error } = await supabase
                 .from('projects')
-                .insert(projectToDb(draft))
+                .insert(withUserId(projectToDb(draft)))
                 .select()
                 .single();
               if (error) throw error;
@@ -1479,7 +1841,7 @@
 
   function selectProject(id) {
     state.selectedProjectId = id;
-    try { localStorage.setItem(SELECTED_KEY, id); } catch { /* ignore */ }
+    try { localStorage.setItem(selectedKey(), id); } catch { /* ignore */ }
     render();
     showPane('main');
   }
@@ -1550,7 +1912,7 @@
             await runSync('Saving…', async () => {
               const { data: row, error } = await supabase
                 .from('tasks')
-                .insert(taskToDb(draft))
+                .insert(withUserId(taskToDb(draft)))
                 .select()
                 .single();
               if (error) throw error;
@@ -1588,7 +1950,7 @@
         await runSync('Saving…', async () => {
           const { data: row, error } = await supabase
             .from('tasks')
-            .insert(taskToDb(draft))
+            .insert(withUserId(taskToDb(draft)))
             .select()
             .single();
           if (error) throw error;
@@ -2155,9 +2517,215 @@
     btn.addEventListener('click', () => showPane(btn.getAttribute('data-pane')));
   });
 
-  // Init
-  async function init() {
-    // Show cache immediately if present
+  // ── Auth UI wiring ──
+  function setBusy(btn, busy, label) {
+    if (!btn) return;
+    btn.disabled = !!busy;
+    if (label) btn.textContent = label;
+  }
+
+  function readOtpCode() {
+    const inputs = [...document.querySelectorAll('#otp-inputs input')];
+    return inputs.map((i) => i.value.replace(/\D/g, '')).join('');
+  }
+
+  function wireOtpInputs() {
+    const inputs = [...document.querySelectorAll('#otp-inputs input')];
+    inputs.forEach((input, idx) => {
+      input.addEventListener('input', (e) => {
+        const v = e.target.value.replace(/\D/g, '').slice(-1);
+        e.target.value = v;
+        if (v && idx < inputs.length - 1) inputs[idx + 1].focus();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Backspace' && !e.target.value && idx > 0) {
+          inputs[idx - 1].focus();
+        }
+      });
+      input.addEventListener('paste', (e) => {
+        e.preventDefault();
+        const text = (e.clipboardData || window.clipboardData).getData('text') || '';
+        const digits = text.replace(/\D/g, '').slice(0, 6).split('');
+        digits.forEach((d, i) => {
+          if (inputs[i]) inputs[i].value = d;
+        });
+        const focusIdx = Math.min(digits.length, inputs.length - 1);
+        if (inputs[focusIdx]) inputs[focusIdx].focus();
+      });
+    });
+  }
+
+  document.getElementById('goto-signup').addEventListener('click', () => {
+    setAuthMsg('');
+    showAuthView('signup');
+  });
+  document.getElementById('goto-signin').addEventListener('click', () => {
+    setAuthMsg('');
+    showAuthView('signin');
+  });
+  document.getElementById('goto-signin-from-otp').addEventListener('click', () => {
+    setAuthMsg('');
+    pendingOtpEmail = '';
+    showAuthView('signin');
+  });
+
+  document.getElementById('form-signup').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('signup-email').value.trim();
+    const password = document.getElementById('signup-password').value;
+    const password2 = document.getElementById('signup-password2').value;
+    if (password !== password2) {
+      setAuthMsg('Passwords do not match.', 'error');
+      return;
+    }
+    if (password.length < 6) {
+      setAuthMsg('Please choose a password of at least 6 characters.', 'error');
+      return;
+    }
+    const btn = document.getElementById('btn-signup');
+    setBusy(btn, true, 'Creating…');
+    setAuthMsg('');
+    try {
+      const { data, error } = await supabase.auth.signUp({ email, password });
+      if (error) throw error;
+      pendingOtpEmail = email;
+      pendingOtpType = 'signup';
+      if (data.session) {
+        setAuthMsg('Account created. You are signed in.', 'success');
+        // onAuthStateChange will boot the app
+      } else {
+        setAuthMsg('We have sent a 6-digit code to your email. Enter it below to verify.', 'info');
+        showAuthView('otp');
+      }
+    } catch (err) {
+      console.error(err);
+      setAuthMsg(friendlyAuthError(err), 'error');
+    } finally {
+      setBusy(btn, false, 'Create account');
+    }
+  });
+
+  document.getElementById('form-signin').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const email = document.getElementById('signin-email').value.trim();
+    const password = document.getElementById('signin-password').value;
+    const btn = document.getElementById('btn-signin');
+    setBusy(btn, true, 'Signing in…');
+    setAuthMsg('');
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        const msg = (error.message || '').toLowerCase();
+        if (msg.includes('email not confirmed') || msg.includes('not confirmed')) {
+          pendingOtpEmail = email;
+          pendingOtpType = 'signup';
+          setAuthMsg('Your email is not verified yet. Enter the 6-digit code, or resend a new one.', 'info');
+          showAuthView('otp');
+          return;
+        }
+        throw error;
+      }
+      // session via onAuthStateChange
+    } catch (err) {
+      console.error(err);
+      setAuthMsg(friendlyAuthError(err), 'error');
+    } finally {
+      setBusy(btn, false, 'Sign in');
+    }
+  });
+
+  document.getElementById('form-otp').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const token = readOtpCode();
+    if (token.length !== 6) {
+      setAuthMsg('Please enter the full 6-digit code from your email.', 'error');
+      return;
+    }
+    if (!pendingOtpEmail) {
+      setAuthMsg('Missing email for verification. Please create an account again.', 'error');
+      showAuthView('signup');
+      return;
+    }
+    const btn = document.getElementById('btn-verify-otp');
+    setBusy(btn, true, 'Verifying…');
+    setAuthMsg('');
+    try {
+      let result = await supabase.auth.verifyOtp({
+        email: pendingOtpEmail,
+        token,
+        type: pendingOtpType || 'signup',
+      });
+      if (result.error && (pendingOtpType || 'signup') === 'signup') {
+        // Some projects deliver codes as type "email"
+        result = await supabase.auth.verifyOtp({
+          email: pendingOtpEmail,
+          token,
+          type: 'email',
+        });
+      }
+      if (result.error) throw result.error;
+      setAuthMsg('Email verified. Loading your tasks…', 'success');
+    } catch (err) {
+      console.error(err);
+      setAuthMsg(friendlyAuthError(err), 'error');
+    } finally {
+      setBusy(btn, false, 'Verify and continue');
+    }
+  });
+
+  document.getElementById('btn-resend-otp').addEventListener('click', async () => {
+    if (!pendingOtpEmail) {
+      setAuthMsg('No email on file to resend to. Create an account first.', 'error');
+      return;
+    }
+    const btn = document.getElementById('btn-resend-otp');
+    setBusy(btn, true, 'Sending…');
+    setAuthMsg('');
+    try {
+      // Prefer dedicated signup resend; fall back to OTP sign-in for email-type codes
+      let error = null;
+      const resend = await supabase.auth.resend({
+        type: 'signup',
+        email: pendingOtpEmail,
+      });
+      error = resend.error;
+      if (error) {
+        const otp = await supabase.auth.signInWithOtp({
+          email: pendingOtpEmail,
+          options: { shouldCreateUser: false },
+        });
+        error = otp.error;
+        if (!error) pendingOtpType = 'email';
+      } else {
+        pendingOtpType = 'signup';
+      }
+      if (error) throw error;
+      setAuthMsg('A new code has been sent. It may take a minute to arrive.', 'info');
+    } catch (err) {
+      console.error(err);
+      setAuthMsg(friendlyAuthError(err), 'error');
+    } finally {
+      setBusy(btn, false, 'Resend code');
+    }
+  });
+
+  document.getElementById('btn-signout').addEventListener('click', async () => {
+    try {
+      setSync('syncing', 'Signing out…');
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error(err);
+      setSync('error', 'Error: sign out failed');
+    }
+  });
+
+  wireOtpInputs();
+
+  async function bootAppForSession() {
+    loadSelectedProjectId();
+    setLoggedInUI();
+    setAuthMsg('');
+
     const cached = cacheRead();
     if (cached) {
       state.projects = cached.projects;
@@ -2168,7 +2736,8 @@
       render();
       setSync('syncing', 'Refreshing…');
     } else {
-      setSync('syncing', 'Connecting…');
+      clearLocalUserData();
+      setSync('syncing', 'Loading…');
       render();
     }
 
@@ -2182,9 +2751,64 @@
       setSync('connected', 'Connected');
     } catch (err) {
       console.error(err);
-      setSync('error', 'Error: ' + (err.message || 'connection failed'));
+      const msg = err.message || 'connection failed';
+      setSync('error', 'Error: ' + msg);
       if (!cached) render();
     }
+  }
+
+  let bootInFlight = null;
+
+  async function handleSession(nextSession) {
+    const prevId = session?.user?.id || null;
+    const nextId = nextSession?.user?.id || null;
+    session = nextSession;
+
+    if (!nextSession) {
+      appBooted = false;
+      bootInFlight = null;
+      clearLocalUserData();
+      setLoggedOutUI();
+      setSync('syncing', 'Signed out');
+      return;
+    }
+
+    if (prevId && nextId && prevId !== nextId) {
+      clearLocalUserData();
+      appBooted = false;
+    }
+
+    setLoggedInUI();
+    if (!appBooted || prevId !== nextId) {
+      appBooted = true;
+      // Serialize boots if getSession + onAuthStateChange overlap
+      const run = (bootInFlight || Promise.resolve()).then(() => bootAppForSession());
+      bootInFlight = run.catch(() => {}).finally(() => {
+        if (bootInFlight === run) bootInFlight = null;
+      });
+      await run;
+    }
+  }
+
+  // Init auth
+  async function init() {
+    setLoggedOutUI();
+    setSync('syncing', 'Checking session…');
+
+    // Subscribe first so INITIAL_SESSION / SIGNED_IN are not missed.
+    // Defer async work so the auth client is not blocked on the callback.
+    supabase.auth.onAuthStateChange((event, nextSession) => {
+      queue handleSession(nextSession);
+    });
+    authListenerReady = true;
+
+    const { data: { session: existing }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error(error);
+      setAuthMsg(friendlyAuthError(error), 'error');
+    }
+    // Apply immediately; listener may also fire — handleSession serializes boots.
+    await handleSession(existing);
   }
 
   init();
