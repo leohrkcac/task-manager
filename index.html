@@ -946,6 +946,10 @@
       font-weight: 650;
     }
 
+    #audit-body {
+      text-align: left;
+    }
+
     .audit-list {
       list-style: none;
       margin: 0;
@@ -955,60 +959,71 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       background: var(--bg-input);
+      text-align: left;
     }
 
     .audit-list li {
-      padding: 0.65rem 0.75rem;
+      padding: 0.75rem 0.85rem;
       border-bottom: 1px solid var(--border);
       font-size: 0.82rem;
-      line-height: 1.35;
+      line-height: 1.45;
+      text-align: left;
     }
 
     .audit-list li:last-child { border-bottom: none; }
 
-    .audit-list .audit-time {
+    .audit-list .audit-row {
+      display: grid;
+      grid-template-columns: 5.5rem 1fr;
+      gap: 0.25rem 0.65rem;
+      align-items: start;
+      margin-bottom: 0.28rem;
+    }
+    .audit-list .audit-row:last-child { margin-bottom: 0; }
+
+    .audit-list .audit-k {
       color: var(--text-dim);
       font-size: 0.72rem;
-      margin-bottom: 0.25rem;
+      font-weight: 650;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      padding-top: 0.12rem;
     }
 
-    .audit-list .audit-action {
+    .audit-list .audit-v {
+      color: var(--text);
+      font-size: 0.84rem;
+      word-break: break-word;
+      text-align: left;
+    }
+
+    .audit-list .audit-v.activity {
       font-weight: 650;
       color: var(--accent);
-      font-size: 0.88rem;
-      letter-spacing: 0.01em;
+      font-size: 0.9rem;
     }
 
-    .audit-list .audit-actor {
-      color: var(--text);
-      font-size: 0.8rem;
-      margin-top: 0.2rem;
-    }
-
-    .audit-list .audit-actor .audit-email {
+    .audit-list .audit-v .audit-email {
+      display: block;
       color: var(--text-dim);
-      font-size: 0.72rem;
-      margin-left: 0.35rem;
-    }
-
-    .audit-list .audit-label {
-      color: var(--text);
-      margin-top: 0.2rem;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
+      font-weight: 400;
+      margin-top: 0.1rem;
     }
 
     .audit-list .audit-details {
       color: var(--text-muted);
-      font-size: 0.78rem;
-      margin-top: 0.25rem;
+      font-size: 0.8rem;
       word-break: break-word;
       line-height: 1.4;
     }
 
     .audit-list .audit-raw {
-      margin-top: 0.3rem;
+      margin-top: 0.35rem;
+      margin-left: 5.5rem;
       font-size: 0.7rem;
       color: var(--text-dim);
+      text-align: left;
     }
 
     .audit-list .audit-raw summary {
@@ -1026,18 +1041,19 @@
       white-space: pre-wrap;
       word-break: break-word;
       font-size: 0.68rem;
+      text-align: left;
     }
 
     .audit-empty {
       padding: 1.25rem 0.75rem;
-      text-align: center;
+      text-align: left;
       color: var(--text-dim);
       font-size: 0.85rem;
     }
 
     .audit-loading {
       padding: 1rem;
-      text-align: center;
+      text-align: left;
       color: var(--text-muted);
       font-size: 0.85rem;
     }
@@ -1809,7 +1825,7 @@
   <div class="modal-backdrop" id="audit-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="audit-title">
     <div class="modal modal-wide" id="audit-modal">
       <h3 id="audit-title">Audit log</h3>
-      <div id="audit-body" class="audit-loading">Loading…</div>
+      <div id="audit-body">Loading…</div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="audit-refresh">Refresh</button>
         <button type="button" class="btn btn-primary" id="audit-close">Close</button>
@@ -3153,10 +3169,27 @@
     }
   }
 
+  function splitAuditDateTime(iso) {
+    if (!iso) return { date: '—', time: '—' };
+    try {
+      const d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return { date: String(iso), time: '' };
+      return {
+        date: d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }),
+        time: d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+      };
+    } catch {
+      return { date: String(iso), time: '' };
+    }
+  }
+
   async function loadAuditLogsInto(bodyEl) {
-    bodyEl.innerHTML = '<div class="audit-loading">Loading…</div>';
+    bodyEl.classList.add('audit-loading');
+    bodyEl.classList.remove('has-audit');
+    bodyEl.innerHTML = 'Loading…';
     try {
       if (!supabase || !supabaseReady || !session?.user) {
+        bodyEl.classList.remove('audit-loading');
         bodyEl.innerHTML = '<div class="audit-empty">Sign in to view your audit log.</div>';
         return;
       }
@@ -3176,46 +3209,46 @@
       if (q.error) throw q.error;
       rows = q.data || [];
       if (!rows.length) {
+        bodyEl.classList.remove('audit-loading');
         bodyEl.innerHTML = '<div class="audit-empty">No audit entries yet.</div>';
         return;
       }
+      bodyEl.classList.remove('audit-loading');
+      bodyEl.classList.add('has-audit');
       bodyEl.innerHTML = '<ul class="audit-list" role="list">' + rows.map((r) => {
         const title = escapeHtml(humanizeAuditAction(r.action));
         const actorName = (r.user_full_name || (r.details && r.details.actorName) || '').trim();
         const email = r.user_email || '';
-        const actor = actorName
-          ? ('<div class="audit-actor"><strong>' + escapeHtml(actorName) + '</strong>' +
-             (email ? '<span class="audit-email">' + escapeHtml(email) + '</span>' : '') + '</div>')
-          : (email
-            ? '<div class="audit-actor"><strong>' + escapeHtml(email) + '</strong></div>'
-            : '<div class="audit-actor"><span class="audit-email">Unknown actor</span></div>');
-        const label = r.entity_label
-          ? '<div class="audit-label">' + escapeHtml(r.entity_label) + '</div>'
-          : '';
+        const userHtml = actorName
+          ? (escapeHtml(actorName) + (email ? '<span class="audit-email">' + escapeHtml(email) + '</span>' : ''))
+          : (email ? escapeHtml(email) : 'Unknown user');
+        const item = r.entity_label ? escapeHtml(r.entity_label) : '—';
         const detLine = prettyAuditDetails(r.details, r.action);
-        const det = detLine
-          ? '<div class="audit-details">' + escapeHtml(detLine) + '</div>'
-          : '';
+        const dt = splitAuditDateTime(r.created_at);
         let raw = '';
         try {
           if (r.details && typeof r.details === 'object' && Object.keys(r.details).length) {
-            raw = '<details class="audit-raw"><summary>Raw details</summary><pre>' +
+            raw = '<details class="audit-raw"><summary>More details</summary><pre>' +
               escapeHtml(JSON.stringify(r.details, null, 2)) + '</pre></details>';
           }
         } catch (_) { /* ignore */ }
         return (
           '<li>' +
-            '<div class="audit-time">' + escapeHtml(formatAuditTime(r.created_at)) + '</div>' +
-            '<div class="audit-action">' + title + '</div>' +
-            actor +
-            label +
-            det +
+            '<div class="audit-row"><span class="audit-k">Date</span><span class="audit-v">' + escapeHtml(dt.date) + '</span></div>' +
+            '<div class="audit-row"><span class="audit-k">Time</span><span class="audit-v">' + escapeHtml(dt.time) + '</span></div>' +
+            '<div class="audit-row"><span class="audit-k">User</span><span class="audit-v">' + userHtml + '</span></div>' +
+            '<div class="audit-row"><span class="audit-k">Activity</span><span class="audit-v activity">' + title + '</span></div>' +
+            '<div class="audit-row"><span class="audit-k">Item</span><span class="audit-v">' + item + '</span></div>' +
+            (detLine
+              ? '<div class="audit-row"><span class="audit-k">Details</span><span class="audit-v audit-details">' + escapeHtml(detLine) + '</span></div>'
+              : '') +
             raw +
           '</li>'
         );
       }).join('') + '</ul>';
     } catch (err) {
       console.error(err);
+      bodyEl.classList.remove('audit-loading');
       bodyEl.innerHTML = '<div class="audit-empty">Could not load audit log: ' +
         escapeHtml(err.message || 'unknown error') + '</div>';
     }
@@ -5751,6 +5784,13 @@
   }
 
 
+  document.getElementById('btn-profile')?.addEventListener('click', () => { openProfileModal(); });
+  document.getElementById('profile-cancel')?.addEventListener('click', () => closeProfileModal());
+  document.getElementById('form-profile')?.addEventListener('submit', saveProfile);
+  document.getElementById('profile-backdrop')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('profile-backdrop')) closeProfileModal();
+  });
+
   document.getElementById('btn-signout').addEventListener('click', async () => {
     if (!requireSupabaseClient()) return;
     try {
@@ -5762,13 +5802,6 @@
         entityLabel: email,
         details: {},
       });
-  document.getElementById('btn-profile')?.addEventListener('click', () => openProfileModal());
-  document.getElementById('profile-cancel')?.addEventListener('click', () => closeProfileModal());
-  document.getElementById('form-profile')?.addEventListener('submit', saveProfile);
-  document.getElementById('profile-backdrop')?.addEventListener('click', (e) => {
-    if (e.target === document.getElementById('profile-backdrop')) closeProfileModal();
-  });
-
       await supabase.auth.signOut();
     } catch (err) {
       console.error(err);
