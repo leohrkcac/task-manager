@@ -259,6 +259,9 @@
       gap: 0.5rem;
       margin-top: 0.5rem;
     }
+    .pct-pair.has-hold {
+      grid-template-columns: 1fr 1fr 1fr;
+    }
 
     .pct-chip {
       background: var(--bg-elevated);
@@ -276,6 +279,7 @@
     }
     .pct-chip.done strong { color: var(--success); }
     .pct-chip.pending strong { color: var(--warning); }
+    .pct-chip.hold strong { color: var(--warning); }
 
     /* ── Project list ── */
     .project-list {
@@ -525,6 +529,13 @@
     }
     .task-card.is-done .task-title {
       text-decoration: line-through;
+      color: var(--text-muted);
+    }
+    .task-card.is-hold {
+      border-color: rgba(224, 144, 16, 0.45);
+      background: rgba(224, 144, 16, 0.06);
+    }
+    .task-card.is-hold .task-title {
       color: var(--text-muted);
     }
 
@@ -1227,6 +1238,7 @@
   const SELECTED_KEY_BASE = 'project-task-tracker:selected:v3';
   const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
   const STATUS_LABELS = { active: 'Active', 'on-hold': 'On hold', done: 'Done' };
+  const TASK_STATUS_LABELS = { pending: 'Pending', done: 'Done', hold: 'On hold' };
 
   // Client created after safe library load — never throw before nav wiring
   let supabase = null;
@@ -1926,12 +1938,14 @@
 
   // ── Stats ──
   function taskStats(tasks) {
-    const total = tasks.length;
+    const pending = tasks.filter((t) => t.status === 'pending').length;
     const done = tasks.filter((t) => t.status === 'done').length;
-    const pending = total - done;
+    const hold = tasks.filter((t) => t.status === 'hold').length;
+    // Hold excluded from progress base (pending + done only)
+    const total = pending + done;
     const pctDone = total === 0 ? 0 : Math.round((done / total) * 100);
     const pctPending = total === 0 ? 0 : Math.round((pending / total) * 100);
-    return { total, done, pending, pctDone, pctPending };
+    return { total, done, pending, hold, pctDone, pctPending, allCount: tasks.length };
   }
 
   function projectTasks(projectId) {
@@ -1970,10 +1984,11 @@
     state.tasks.forEach((t) => {
       let next;
       if (t.status !== 'pending') {
-        next = null;
+        // done + hold: out of lineup queue; never null
+        next = 0;
       } else {
         const idx = orderedIds.indexOf(t.id);
-        next = idx === -1 ? null : idx;
+        next = idx === -1 ? 0 : idx;
       }
       if (t.lineupOrder !== next) {
         t.lineupOrder = next;
@@ -2170,6 +2185,7 @@
     '"Review draft proposal","Check client comments in the brief",high,2026-09-25,pending',
     '"Update colour palette","Sample — replace with your own notes",medium,,pending',
     '"Archive old files","Sample row — status done",low,,done',
+    '"Pause vendor follow-up","Sample row — status hold / on hold",low,,hold',
   ].join('\n') + '\n';
 
   const TUAN_TUAN_CLIENT = 'Tuan-Tuan Greenhills';
@@ -2278,12 +2294,22 @@
     return hasAdditional || hasDone;
   }
 
-  function mapChecklistStatus(raw) {
-    const s = String(raw || '').trim().toLowerCase();
+  /** Map free-text status from CSV / checklist → pending | done | hold (or null if invalid). */
+  function mapImportStatus(raw) {
+    const s = String(raw || '')
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ');
     if (!s) return 'pending';
     if (s === 'done' || s === 'complete' || s === 'completed') return 'done';
     if (s === 'pending' || s === 'open' || s === 'todo' || s === 'to do') return 'pending';
+    if (s === 'hold' || s === 'on hold') return 'hold';
     return null;
+  }
+
+  function mapChecklistStatus(raw) {
+    return mapImportStatus(raw);
   }
 
   function sheetRowsToObjects(workbook, sheetName) {
@@ -2349,7 +2375,7 @@
       let notes = String(cells[col.notes] ?? '').trim();
       let priorityRaw = String(cells[col.priority] ?? '').trim().toLowerCase();
       let dueRaw = String(cells[col.due_date] ?? '').trim();
-      let statusRaw = String(cells[col.status] ?? '').trim().toLowerCase();
+      let statusRaw = String(cells[col.status] ?? '').trim();
 
       if (!priorityRaw) priorityRaw = 'medium';
       if (!statusRaw) statusRaw = 'pending';
@@ -2358,8 +2384,9 @@
       if (!['high', 'medium', 'low'].includes(priorityRaw)) {
         rowErrors.push('priority must be high, medium, or low');
       }
-      if (!['pending', 'done'].includes(statusRaw)) {
-        rowErrors.push('status must be pending or done');
+      const status = mapImportStatus(statusRaw);
+      if (!status) {
+        rowErrors.push('status must be pending, done, or hold (also: on hold, on_hold)');
       }
       if (!isValidDueDate(dueRaw)) {
         rowErrors.push('due_date must be YYYY-MM-DD or empty');
@@ -2370,7 +2397,6 @@
         continue;
       }
 
-      const status = statusRaw;
       const lineupOrder = status === 'pending' ? nextOrder++ : 0;
       drafts.push({
         projectId,
@@ -2388,7 +2414,7 @@
 
   /**
    * Build task drafts from a Tuan-Tuan Greenhills POS checklist workbook.
-   * Additional Requests: Request→title, Notes/Details→notes, Status→done/pending;
+   * Additional Requests: Request→title, Notes/Details→notes, Status→pending/done/hold;
    * priority high when pending, otherwise low. Done by EPOS: Item→title.
    * Summary & Sign-off is ignored.
    */
@@ -2412,7 +2438,7 @@
             line +
             ' (“' +
             titleTrim.slice(0, 40) +
-            '”): status must be Pending or Done'
+            '”): status must be Pending, Done, or Hold'
         );
         return;
       }
@@ -2721,7 +2747,7 @@
         t.priority = data.priority;
         t.dueDate = data.dueDate || '';
         t.status = data.status;
-        if (t.status === 'done') {
+        if (t.status === 'done' || t.status === 'hold') {
           t.lineupOrder = 0;
         } else if (!wasPending && t.status === 'pending') {
           const open = openTasksSorted().filter((x) => x.id !== t.id);
@@ -2764,24 +2790,12 @@
     })();
   }
 
-  function toggleTask(id) {
-    const t = state.tasks.find((x) => x.id === id);
-    if (!t) return;
-    const prev = { ...t };
-    if (t.status === 'pending') {
-      t.status = 'done';
-      t.lineupOrder = 0;
-    } else {
-      t.status = 'pending';
-      const open = openTasksSorted().filter((x) => x.id !== t.id);
-      const maxOrder = open.reduce((m, x) => Math.max(m, x.lineupOrder ?? -1), -1);
-      t.lineupOrder = maxOrder + 1;
-    }
+  function persistTaskStatusChange(t, prev) {
     render();
     (async () => {
       try {
         await runSync('Saving…', async () => {
-          const { error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', id);
+          const { error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', t.id);
           if (error) throw error;
         });
       } catch {
@@ -2789,6 +2803,37 @@
         render();
       }
     })();
+  }
+
+  function assignPendingLineup(t) {
+    const open = openTasksSorted().filter((x) => x.id !== t.id);
+    const maxOrder = open.reduce((m, x) => Math.max(m, x.lineupOrder ?? -1), -1);
+    t.lineupOrder = maxOrder + 1;
+  }
+
+  function toggleTask(id) {
+    const t = state.tasks.find((x) => x.id === id);
+    if (!t) return;
+    const prev = { ...t };
+    if (t.status === 'pending') {
+      t.status = 'done';
+      t.lineupOrder = 0;
+    } else if (t.status === 'done' || t.status === 'hold') {
+      // done → pending; hold → resume as pending
+      t.status = 'pending';
+      assignPendingLineup(t);
+    }
+    persistTaskStatusChange(t, prev);
+  }
+
+  /** Put a pending (or done) task on hold — excluded from progress and lineup. */
+  function holdTask(id) {
+    const t = state.tasks.find((x) => x.id === id);
+    if (!t || t.status === 'hold') return;
+    const prev = { ...t };
+    t.status = 'hold';
+    t.lineupOrder = 0;
+    persistTaskStatusChange(t, prev);
   }
 
   function taskFields(t) {
@@ -2819,6 +2864,7 @@
         <label for="f-tstatus">Status</label>
         <select id="f-tstatus" name="status">
           <option value="pending" ${t.status === 'pending' ? 'selected' : ''}>Pending</option>
+          <option value="hold" ${t.status === 'hold' ? 'selected' : ''}>On hold</option>
           <option value="done" ${t.status === 'done' ? 'selected' : ''}>Done</option>
         </select>
       </div>
@@ -2964,6 +3010,9 @@
   let taskFilter = 'all';
 
   function renderProgressCard(container, stats, label) {
+    const holdChip = stats.hold
+      ? `<div class="pct-chip hold"><strong>${stats.hold}</strong> on hold</div>`
+      : '';
     container.innerHTML = `
       <h3>${escapeHtml(label)}</h3>
       <div class="stat-row">
@@ -2973,9 +3022,10 @@
       <div class="progress-bar" role="progressbar" aria-valuenow="${stats.pctDone}" aria-valuemin="0" aria-valuemax="100" aria-label="Percent complete">
         <span style="width:${stats.pctDone}%"></span>
       </div>
-      <div class="pct-pair">
+      <div class="pct-pair ${stats.hold ? 'has-hold' : ''}">
         <div class="pct-chip done"><strong>${stats.pctDone}%</strong> complete</div>
         <div class="pct-chip pending"><strong>${stats.pctPending}%</strong> pending</div>
+        ${holdChip}
       </div>
     `;
   }
@@ -3043,9 +3093,13 @@
     let tasks = all;
     if (taskFilter === 'pending') tasks = all.filter((t) => t.status === 'pending');
     if (taskFilter === 'done') tasks = all.filter((t) => t.status === 'done');
+    if (taskFilter === 'hold') tasks = all.filter((t) => t.status === 'hold');
 
+    const STATUS_SORT = { pending: 0, hold: 1, done: 2 };
     tasks = tasks.slice().sort((a, b) => {
-      if (a.status !== b.status) return a.status === 'pending' ? -1 : 1;
+      const sa = STATUS_SORT[a.status] ?? 9;
+      const sb = STATUS_SORT[b.status] ?? 9;
+      if (sa !== sb) return sa - sb;
       const pa = PRIORITY_ORDER[a.priority] ?? 9;
       const pb = PRIORITY_ORDER[b.priority] ?? 9;
       if (pa !== pb) return pa - pb;
@@ -3096,6 +3150,7 @@
         <div class="filter-tabs" role="tablist" aria-label="Filter tasks">
           <button type="button" role="tab" data-filter="all" class="${taskFilter === 'all' ? 'active' : ''}" aria-selected="${taskFilter === 'all'}">All (${all.length})</button>
           <button type="button" role="tab" data-filter="pending" class="${taskFilter === 'pending' ? 'active' : ''}" aria-selected="${taskFilter === 'pending'}">Pending (${stats.pending})</button>
+          <button type="button" role="tab" data-filter="hold" class="${taskFilter === 'hold' ? 'active' : ''}" aria-selected="${taskFilter === 'hold'}">Hold (${stats.hold})</button>
           <button type="button" role="tab" data-filter="done" class="${taskFilter === 'done' ? 'active' : ''}" aria-selected="${taskFilter === 'done'}">Done (${stats.done})</button>
         </div>
         <div class="task-toolbar-actions">
@@ -3109,7 +3164,7 @@
       <ul class="task-list" id="task-list">
         ${tasks.length === 0 ? `
           <li class="empty">
-            <p>${taskFilter === 'all' ? 'No tasks in this project yet' : `No ${taskFilter} tasks`}</p>
+            <p>${taskFilter === 'all' ? 'No tasks in this project yet' : (taskFilter === 'hold' ? 'No tasks on hold' : `No ${taskFilter} tasks`)}</p>
             <p class="sub">${taskFilter === 'all' ? 'Add a task to start tracking progress.' : 'Try another filter, or add a new task.'}</p>
             ${taskFilter === 'all' ? '<button type="button" class="btn btn-primary" id="empty-add-task">+ Add task</button>' : ''}
           </li>
@@ -3146,13 +3201,24 @@
     const due = t.dueDate
       ? `<span class="due-date ${dueClass(t.dueDate)}" title="Due date">Due ${formatDue(t.dueDate)}</span>`
       : '';
+    const statusBadge = t.status === 'hold'
+      ? `<span class="badge on-hold" title="On hold">${TASK_STATUS_LABELS.hold}</span>`
+      : '';
+    const cardClass = t.status === 'done' ? 'is-done' : (t.status === 'hold' ? 'is-hold' : '');
+    const checkLabel =
+      t.status === 'done' ? 'Mark as pending' :
+      t.status === 'hold' ? 'Resume (mark as pending)' :
+      'Mark as done';
+    const holdBtn = t.status !== 'hold'
+      ? `<button type="button" class="btn-icon" data-action="hold-task" data-id="${t.id}" title="Put on hold" aria-label="Put on hold">⏸</button>`
+      : '';
     return `
-      <li class="task-card ${t.status === 'done' ? 'is-done' : ''}" data-id="${t.id}">
+      <li class="task-card ${cardClass}" data-id="${t.id}">
         <button type="button"
                 class="checkbox ${t.status === 'done' ? 'checked' : ''}"
                 data-action="toggle-task"
                 data-id="${t.id}"
-                aria-label="${t.status === 'done' ? 'Mark as pending' : 'Mark as done'}"
+                aria-label="${checkLabel}"
                 aria-pressed="${t.status === 'done'}">
           ${t.status === 'done' ? '✓' : ''}
         </button>
@@ -3161,10 +3227,12 @@
           ${t.notes ? `<div class="task-notes">${escapeHtml(t.notes)}</div>` : ''}
           <div class="task-meta">
             <span class="priority-badge ${t.priority}">${t.priority}</span>
+            ${statusBadge}
             ${due}
           </div>
         </div>
         <div class="task-actions">
+          ${holdBtn}
           <button type="button" class="btn-icon" data-action="edit-task" data-id="${t.id}" title="Edit" aria-label="Edit task">✎</button>
           <button type="button" class="btn-icon danger" data-action="delete-task" data-id="${t.id}" title="Delete" aria-label="Delete task">✕</button>
         </div>
@@ -3260,6 +3328,7 @@
     const action = btn.getAttribute('data-action');
     const id = btn.getAttribute('data-id');
     if (action === 'toggle-task') toggleTask(id);
+    if (action === 'hold-task') holdTask(id);
     if (action === 'edit-task') editTask(id);
     if (action === 'delete-task') deleteTask(id);
   });
