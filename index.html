@@ -1686,7 +1686,7 @@
       priority: t.priority,
       due_date: emptyToNull(t.dueDate),
       status: t.status,
-      lineup_order: t.lineupOrder == null ? null : t.lineupOrder,
+      lineup_order: t.lineupOrder == null ? 0 : t.lineupOrder,
       updated_at: new Date().toISOString(),
     };
   }
@@ -1775,12 +1775,12 @@
         'Website redesign': [
           { title: 'Draft project brief', notes: 'Outline goals and success criteria.', priority: 'high', due_date: addDays(2), status: 'pending', lineup_order: 0 },
           { title: 'Stakeholder kick-off', notes: '', priority: 'high', due_date: addDays(5), status: 'pending', lineup_order: 1 },
-          { title: 'Set up shared folder', notes: 'Invite the team.', priority: 'low', due_date: null, status: 'done', lineup_order: null },
+          { title: 'Set up shared folder', notes: 'Invite the team.', priority: 'low', due_date: null, status: 'done', lineup_order: 0 },
         ],
         'Design system': [
           { title: 'Review design mock-ups', notes: 'Focus on mobile layout.', priority: 'medium', due_date: addDays(1), status: 'pending', lineup_order: 2 },
           { title: 'Write accessibility checklist', notes: '', priority: 'medium', due_date: addDays(7), status: 'pending', lineup_order: 3 },
-          { title: 'Pick colour palette', notes: 'Dark theme preferred.', priority: 'low', due_date: null, status: 'done', lineup_order: null },
+          { title: 'Pick colour palette', notes: 'Dark theme preferred.', priority: 'low', due_date: null, status: 'done', lineup_order: 0 },
         ],
         'Admin & ops': [
           { title: 'File quarterly expenses', notes: '', priority: 'high', due_date: addDays(-1), status: 'pending', lineup_order: 4 },
@@ -2175,7 +2175,7 @@
           priority: data.priority,
           dueDate: data.dueDate || '',
           status: data.status,
-          lineupOrder: data.status === 'pending' ? maxOrder + 1 : null,
+          lineupOrder: data.status === 'pending' ? maxOrder + 1 : 0,
         };
         (async () => {
           try {
@@ -2249,7 +2249,7 @@
         t.dueDate = data.dueDate || '';
         t.status = data.status;
         if (t.status === 'done') {
-          t.lineupOrder = null;
+          t.lineupOrder = 0;
         } else if (!wasPending && t.status === 'pending') {
           const open = openTasksSorted().filter((x) => x.id !== t.id);
           const maxOrder = open.reduce((m, x) => Math.max(m, x.lineupOrder ?? -1), -1);
@@ -2297,7 +2297,7 @@
     const prev = { ...t };
     if (t.status === 'pending') {
       t.status = 'done';
-      t.lineupOrder = null;
+      t.lineupOrder = 0;
     } else {
       t.status = 'pending';
       const open = openTasksSorted().filter((x) => x.id !== t.id);
