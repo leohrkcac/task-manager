@@ -1414,9 +1414,6 @@
         <button type="button" class="btn btn-ghost btn-sm" id="btn-delete-approvals" title="Review pending delete requests" hidden>
           Delete approvals
         </button>
-        <button type="button" class="btn btn-ghost btn-sm" id="btn-samples" title="Insert demo projects and tasks into Supabase">
-          Add sample data
-        </button>
         <div class="header-user" id="header-user" hidden>
           <span class="role-badge member" id="user-role-badge" title="Your role">Member</span>
           <span class="user-email" id="user-email" title=""></span>
@@ -3302,40 +3299,6 @@
     '"Pause vendor follow-up","Sample row — status hold / on hold",low,,hold',
   ].join('\n') + '\n';
 
-  const LUNCH_LADY_CSV_TEMPLATE = [
-    "title,notes,priority,due_date,status",
-    "KDS: Flash new or updated tickets,[KDS] New or updated tickets should flash on the KDS to draw attention.,high,,pending",
-    "KDS: Double-tap ticket to fulfil entire ticket,[KDS] Double tap a ticket to fulfill the entire ticket in one step.,high,,pending",
-    "KDS: Single-tap ticket then item to fulfil,\"[KDS] Single tap a ticket to view all items, then single tap an individual item to fulfill it.\",high,,pending",
-    "KDS: Two-step Chef & Expediter fulfilment,\"[KDS] Once the Chef fulfills an item or ticket, it appears on the Expediter KDS with a single green check mark. When the Expediter fulfills an item or ticket, it immediately fulfills across all applicable stations.\",high,,pending",
-    "KDS: Prep stations view-only (no fulfil),[KDS] Prep stations can view their assigned tickets but cannot fulfill any items. Fulfillment is limited to the Chef or Expediter.,high,,pending",
-    "KDS: Recall button for fulfilled tickets,[KDS] Add a Recall button to recall tickets that have already been fulfilled.,high,,pending",
-    "KDS: Recently Fulfilled tab,[KDS] Add a Recently Fulfilled tab to view all fulfilled tickets.,medium,,pending",
-    "KDS: Double-tap in Recently Fulfilled to recall,\"[KDS] Inside the Recently Fulfilled tab, double tap a ticket to recall it to the main active orders screen.\",medium,,pending",
-    "KDS: Rush button — front of queue,[KDS] Add a Rush button to move a ticket to the front of the queue for all applicable stations.,high,,pending",
-    "KDS: Modifiers in red text,[KDS] Modifiers should appear in red text.,medium,,pending",
-    "KDS: All Day tab — item quantity summary,[KDS] Add an All Day tab that displays a summary of individual item quantities for all active orders.,medium,,pending",
-    "KDS: Ticket colour coding by age,[KDS] Green = received < 10 min; Orange = over 10 min; Red = over 20 min.,high,,pending",
-    "KDS: Show product code (receipt shows full details),\"[KDS] The KDS should display the product code, while the full product details should be displayed on the receipt.\",medium,,pending",
-    "KDS/POS: Different product names allowed,[KDS] The system should allow the POS product name and KDS product name to be different.,high,,pending",
-    "KDS: Modifiers & modifier groups + SAME TIME,\"[KDS] Support modifiers and modifier groups. When SAME TIME is selected, modifier information should be printed/displayed on all applicable KDS stations.\",high,,pending",
-    "POS: Send button — send selected + log out,\"[POS] Under the order summary, add a Send button that sends selected items to the kitchen or bar and logs out the user.\",high,,pending",
-    "\"POS: Stay button — send selected, stay logged in\",[POS] Add a Stay button that sends selected items to the kitchen or bar but does not log out the user.,high,,pending",
-    "POS: Hold button — save order without sending,[POS] Add a Hold button that saves the order for the Server to return to later without sending any items to the kitchen or bar.,high,,pending",
-    "POS: Select individual items in order summary,\"[POS] Add the ability to select individual items in the order summary for actions such as Send, Hold, Promo, etc.\",high,,pending",
-    "POS: Update item after sent (e.g. add modifier),\"[POS] Add the ability to update an item after it has already been sent to the kitchen, such as adding a modifier. The updated item ticket should then flash on the KDS.\",high,,pending",
-    "POS: Colour coding in order summary,[POS] Red = Unsent; Orange = Sent but not fulfilled; Green = Fulfilled.,high,,pending",
-    "POS: Quick Edit mode (Manager codes),\"[POS] Quick Edit via Manager POS codes: item rearrangement, quantity updates, and item creation/deletion.\",medium,,pending",
-    "POS: Modifiers per item (Toast-like),\"[POS] Improve item modifiers so that they appear per item, similar to Toast POS.\",high,,pending",
-    "Config: Meal-period pricing (Lunch / Dinner),\"[Config] Products may have different prices depending on the meal period, such as Lunch and Dinner.\",high,,pending",
-    "\"Config: Different POS vs KDS names, same product\",[Config] POS and KDS should support different product names while maintaining the same product configuration.,high,,pending",
-    "Reporting: Z Reading — Total Net Sales Food & Beverage,[Reporting] Z Reading should display the Total Net Sales for Food and Beverages.,high,,pending",
-    "Reporting: Separate Food vs Beverage net sales,[Reporting] Food and Beverage net sales should preferably be displayed as separate totals.,medium,,pending",
-    "\"Implementation: Target go-live Oct 12 or 29, 2026\",\"[Implementation] Target Date: October 12 or 29, 2026. Confirm final date with client.\",high,2026-10-12,pending",
-    "Implementation: POS prepared ≥1 week before target,[Implementation] POS should be prepared and configured at least one week before the target date.,high,2026-10-05,pending",
-    "Implementation: Testing & validation before go-live,[Implementation] Testing and validation should be completed before the target implementation date.,high,2026-10-05,pending",
-  ].join('\n') + '\n';
-
   const TUAN_TUAN_CLIENT = 'Tuan-Tuan Greenhills';
 
   function downloadCsvFile(content, filename) {
@@ -3357,14 +3320,6 @@
       'You can also import a Tuan-Tuan style Excel checklist (.xlsx) directly via Import tasks — ' +
       'sheets named “Additional Requests” and “Done by EPOS” are recognised automatically. ' +
       'The Summary & Sign-off sheet is ignored.'
-    );
-  }
-
-  function downloadLunchLadyTemplate() {
-    downloadCsvFile(LUNCH_LADY_CSV_TEMPLATE, 'lunch-lady-kds-pos-template.csv');
-    alert(
-      'Downloaded the Lunch Lady KDS/POS revisions checklist (30 tasks).\n\n' +
-      'Create or select the Lunch Lady project, then choose Import tasks and select this CSV.'
     );
   }
 
@@ -3837,11 +3792,16 @@
         status: 'pending',
       }),
       onSubmit(data) {
+        const title = data.title.trim();
+        if (!title) {
+          alert('Please enter a task title, or Cancel to discard.');
+          return false; // keep modal open if openModal supports it
+        }
         const open = openTasksSorted();
         const maxOrder = open.reduce((m, t) => Math.max(m, t.lineupOrder ?? -1), -1);
         const draft = {
           projectId,
-          title: data.title.trim() || 'Untitled task',
+          title,
           notes: data.notes.trim(),
           priority: data.priority,
           dueDate: data.dueDate || '',
@@ -4115,8 +4075,12 @@
       e.preventDefault();
       const fd = new FormData(form);
       const data = Object.fromEntries(fd.entries());
-      if (modalHandler) modalHandler(data);
-      closeModal();
+      let ok = true;
+      if (modalHandler) {
+        const result = modalHandler(data);
+        if (result === false) ok = false;
+      }
+      if (ok) closeModal();
     };
     backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(); };
     setTimeout(() => {
@@ -4396,13 +4360,11 @@
         </div>
         <div class="task-toolbar-actions">
           <button type="button" class="btn btn-ghost" id="btn-download-template" title="Download a CSV template, or note that Tuan-Tuan Excel checklists can be imported directly">Download template</button>
-          <button type="button" class="btn btn-ghost" id="btn-download-lunch-lady-template" title="Download the 30-row Lunch Lady KDS/POS revisions checklist">Download Lunch Lady template</button>
           <button type="button" class="btn btn-ghost" id="btn-import-tasks" title="Import tasks from CSV or a Tuan-Tuan Excel checklist into this project">Import tasks</button>
           <input type="file" id="import-tasks-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden />
           <button type="button" class="btn btn-primary" id="btn-add-task">+ Add task</button>
         </div>
       </div>
-      <p class="task-import-hint">Create or select project <strong>Lunch Lady</strong>, then choose <strong>Import tasks</strong> and select this CSV.</p>
 
       <ul class="task-list" id="task-list">
         ${tasks.length === 0 ? `
@@ -4417,10 +4379,9 @@
 
     renderProgressCard(document.getElementById('project-progress'), stats, 'This project');
 
-    document.getElementById('btn-add-task')?.addEventListener('click', () => quickAddTask(project.id));
-    document.getElementById('empty-add-task')?.addEventListener('click', () => quickAddTask(project.id));
+    document.getElementById('btn-add-task')?.addEventListener('click', () => addTask(project.id));
+    document.getElementById('empty-add-task')?.addEventListener('click', () => addTask(project.id));
     document.getElementById('btn-download-template')?.addEventListener('click', downloadTaskTemplate);
-    document.getElementById('btn-download-lunch-lady-template')?.addEventListener('click', downloadLunchLadyTemplate);
     document.getElementById('btn-import-tasks')?.addEventListener('click', () => {
       const input = document.getElementById('import-tasks-file');
       if (input) {
@@ -4540,7 +4501,6 @@
 
   // ── Event delegation ──
   document.getElementById('btn-add-project').addEventListener('click', addProject);
-  document.getElementById('btn-samples').addEventListener('click', addSampleData);
   document.getElementById('btn-audit-log').addEventListener('click', openAuditLog);
 
   document.getElementById('project-list').addEventListener('click', (e) => {
@@ -4835,9 +4795,6 @@
 
     try {
       await fetchAll();
-      if (state.projects.length === 0) {
-        await seedIfEmpty();
-      }
       await ensureLineupSeeded();
       render();
       setSync('connected', 'Connected');
