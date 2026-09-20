@@ -957,11 +957,17 @@
     }
     .auth-card .auth-switch button {
       color: var(--accent);
-      font-weight: 550;
+      font-weight: 600;
       text-decoration: underline;
-      text-underline-offset: 2px;
+      text-underline-offset: 3px;
+      cursor: pointer;
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
     }
-    .auth-card .auth-switch button:hover { color: #7aa2f7; }
+    .auth-card .auth-switch button:hover {
+      color: #7aa2f7;
+      background: var(--accent-soft);
+    }
     .auth-msg {
       font-size: 0.85rem;
       padding: 0.65rem 0.75rem;
@@ -1205,7 +1211,9 @@
   const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
   const STATUS_LABELS = { active: 'Active', 'on-hold': 'On hold', done: 'Done' };
 
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // Client created after safe library load — never throw before nav wiring
+  let supabase = null;
+  let supabaseReady = false;
 
   // ── Auth state ──
   let session = null;
@@ -1275,6 +1283,110 @@
       const inputs = document.querySelectorAll('#otp-inputs input');
       inputs.forEach((inp) => { inp.value = ''; });
       if (inputs[0]) inputs[0].focus();
+    }
+  }
+
+  // View navigation FIRST — works even if Supabase CDN fails
+  document.getElementById('goto-signup').addEventListener('click', () => {
+    setAuthMsg('');
+    showAuthView('signup');
+  });
+  document.getElementById('goto-signin').addEventListener('click', () => {
+    setAuthMsg('');
+    showAuthView('signin');
+  });
+  document.getElementById('goto-signin-from-otp').addEventListener('click', () => {
+    setAuthMsg('');
+    pendingOtpEmail = '';
+    showAuthView('signin');
+  });
+
+  function setAuthFormsEnabled(enabled, waitingMsg) {
+    const ids = ['btn-signin', 'btn-signup', 'btn-verify-otp', 'btn-resend-otp'];
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = !enabled;
+      if (id === 'btn-signup') {
+        el.title = enabled ? '' : (waitingMsg || 'Waiting for auth library…');
+      }
+    });
+  }
+
+  function requireSupabaseClient() {
+    if (supabase && supabaseReady) return true;
+    setAuthMsg(
+      !supabase
+        ? 'Auth library is still loading. Please wait a moment.'
+        : 'Could not load Supabase library. Check your network or ad-blocker.',
+      'error'
+    );
+    return false;
+  }
+
+  function loadScript(src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-supabase-cdn="' + src + '"]');
+      if (existing) {
+        if (window.supabase && typeof window.supabase.createClient === 'function') {
+          resolve();
+          return;
+        }
+        existing.addEventListener('load', () => resolve());
+        existing.addEventListener('error', () => reject(new Error('Failed to load ' + src)));
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.dataset.supabaseCdn = src;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('Failed to load ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  async function ensureSupabaseLibrary() {
+    if (window.supabase && typeof window.supabase.createClient === 'function') {
+      return true;
+    }
+    const cdns = [
+      'https://unpkg.com/@supabase/supabase-js@2',
+      'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+    ];
+    for (const url of cdns) {
+      try {
+        await loadScript(url);
+        if (window.supabase && typeof window.supabase.createClient === 'function') {
+          return true;
+        }
+      } catch (err) {
+        console.warn(err);
+      }
+    }
+    return false;
+  }
+
+  async function createSupabaseClientSafe() {
+    setAuthFormsEnabled(false, 'Waiting for auth library…');
+    const ok = await ensureSupabaseLibrary();
+    if (!ok) {
+      setAuthMsg('Could not load Supabase library. Check your network or ad-blocker.', 'error');
+      setAuthFormsEnabled(false, 'Supabase library unavailable');
+      return false;
+    }
+    try {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      supabaseReady = true;
+      setAuthFormsEnabled(true);
+      return true;
+    } catch (err) {
+      console.error(err);
+      supabase = null;
+      supabaseReady = false;
+      setAuthMsg('Could not load Supabase library. Check your network or ad-blocker.', 'error');
+      setAuthFormsEnabled(false, 'Supabase client failed to start');
+      return false;
     }
   }
 
@@ -2555,22 +2667,9 @@
     });
   }
 
-  document.getElementById('goto-signup').addEventListener('click', () => {
-    setAuthMsg('');
-    showAuthView('signup');
-  });
-  document.getElementById('goto-signin').addEventListener('click', () => {
-    setAuthMsg('');
-    showAuthView('signin');
-  });
-  document.getElementById('goto-signin-from-otp').addEventListener('click', () => {
-    setAuthMsg('');
-    pendingOtpEmail = '';
-    showAuthView('signin');
-  });
-
   document.getElementById('form-signup').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!requireSupabaseClient()) return;
     const email = document.getElementById('signup-email').value.trim();
     const password = document.getElementById('signup-password').value;
     const password2 = document.getElementById('signup-password2').value;
@@ -2607,6 +2706,7 @@
 
   document.getElementById('form-signin').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!requireSupabaseClient()) return;
     const email = document.getElementById('signin-email').value.trim();
     const password = document.getElementById('signin-password').value;
     const btn = document.getElementById('btn-signin');
@@ -2636,6 +2736,7 @@
 
   document.getElementById('form-otp').addEventListener('submit', async (e) => {
     e.preventDefault();
+    if (!requireSupabaseClient()) return;
     const token = readOtpCode();
     if (token.length !== 6) {
       setAuthMsg('Please enter the full 6-digit code from your email.', 'error');
@@ -2674,6 +2775,7 @@
   });
 
   document.getElementById('btn-resend-otp').addEventListener('click', async () => {
+    if (!requireSupabaseClient()) return;
     if (!pendingOtpEmail) {
       setAuthMsg('No email on file to resend to. Create an account first.', 'error');
       return;
@@ -2710,6 +2812,7 @@
   });
 
   document.getElementById('btn-signout').addEventListener('click', async () => {
+    if (!requireSupabaseClient()) return;
     try {
       setSync('syncing', 'Signing out…');
       await supabase.auth.signOut();
@@ -2790,25 +2893,41 @@
     }
   }
 
-  // Init auth
+  // Init auth — library/client load is try/catch'd; nav already works
   async function init() {
     setLoggedOutUI();
+    setAuthFormsEnabled(false, 'Waiting for auth library…');
+    setSync('syncing', 'Loading auth…');
+
+    const ready = await createSupabaseClientSafe();
+    if (!ready) {
+      setSync('error', 'Auth library failed');
+      return;
+    }
+
     setSync('syncing', 'Checking session…');
 
     // Subscribe first so INITIAL_SESSION / SIGNED_IN are not missed.
     // Defer async work so the auth client is not blocked on the callback.
-    supabase.auth.onAuthStateChange((event, nextSession) => {
-      queue handleSession(nextSession);
-    });
-    authListenerReady = true;
+    try {
+      supabase.auth.onAuthStateChange((event, nextSession) => {
+        void handleSession(nextSession);
+      });
+      authListenerReady = true;
 
-    const { data: { session: existing }, error } = await supabase.auth.getSession();
-    if (error) {
-      console.error(error);
-      setAuthMsg(friendlyAuthError(error), 'error');
+      const { data: { session: existing }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error(error);
+        setAuthMsg(friendlyAuthError(error), 'error');
+      }
+      // Apply immediately; listener may also fire — handleSession serializes boots.
+      await handleSession(existing);
+    } catch (err) {
+      console.error(err);
+      setAuthMsg('Could not load Supabase library. Check your network or ad-blocker.', 'error');
+      setAuthFormsEnabled(false, 'Supabase init failed');
+      setSync('error', 'Auth init failed');
     }
-    // Apply immediately; listener may also fire — handleSession serializes boots.
-    await handleSession(existing);
   }
 
   init();
