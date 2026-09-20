@@ -2841,7 +2841,13 @@
     setBusy(btn, true, 'Creating…');
     setAuthMsg('');
     try {
-      const { data, error } = await supabase.auth.signUp({ email, password });
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: 'https://leohrkcac.github.io/task-manager/',
+        },
+      });
       if (error) throw error;
       pendingOtpEmail = email;
       pendingOtpType = 'signup';
@@ -2945,6 +2951,9 @@
       const resend = await supabase.auth.resend({
         type: 'signup',
         email: pendingOtpEmail,
+        options: {
+          emailRedirectTo: 'https://leohrkcac.github.io/task-manager/',
+        },
       });
       error = resend.error;
       if (error) {
