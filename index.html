@@ -302,13 +302,41 @@
 
     .app-dashboard {
       grid-column: 1 / -1;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.75rem 1.25rem;
-      padding: 0.65rem 1.25rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.85rem 1.25rem;
+      padding: 0.75rem 1.25rem;
       background: var(--bg-elevated);
       border-bottom: 1px solid var(--border);
+      align-items: stretch;
+    }
+    .app-dashboard .dash-panel {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 0.7rem 0.85rem 0.8rem;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+    .app-dashboard .dash-panel-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text);
+      margin: 0;
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .app-dashboard .dash-panel-hint {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      margin: -0.15rem 0 0.1rem;
+      line-height: 1.3;
     }
     .app-dashboard .dash-label {
       font-size: 0.72rem;
@@ -331,6 +359,17 @@
       display: inline;
       font-size: 0.95rem;
       margin-right: 0.25rem;
+    }
+    .app-dashboard .dash-progress {
+      margin-top: 0.15rem;
+    }
+    .app-dashboard .dash-progress .progress-bar {
+      margin: 0.25rem 0 0.4rem;
+    }
+    .app-dashboard .dash-pct-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
     }
     /* Keep sidebar overall card for task detail; top strip is the project summary */
     .sidebar > .overall-card {
@@ -593,6 +632,50 @@
     .task-card.is-done .task-title {
       text-decoration: line-through;
       color: var(--text-muted);
+    }
+    .task-card.is-completed {
+      opacity: 0.78;
+      border-color: rgba(43, 182, 115, 0.45);
+      background: rgba(43, 182, 115, 0.06);
+    }
+    .task-card.is-completed .task-title {
+      text-decoration: line-through;
+      color: var(--success);
+    }
+    .badge.completed {
+      background: rgba(43, 182, 115, 0.2);
+      color: var(--success);
+    }
+    .app-dashboard .dash-progress {
+      margin-top: 0.15rem;
+    }
+    .app-dashboard .dash-progress .progress-bar {
+      margin: 0.25rem 0 0.4rem;
+      height: 8px;
+      background: var(--bg-hover, rgba(255,255,255,0.06));
+      border-radius: 99px;
+      overflow: hidden;
+    }
+    .app-dashboard .dash-progress .progress-bar > span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, var(--success), #2bb673);
+      border-radius: 99px;
+    }
+    .app-dashboard .dash-pct-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.45rem;
+    }
+    .field-hint {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      margin: 0.35rem 0 0;
+      line-height: 1.35;
+    }
+    .qa-btn[disabled], .qa-btn-disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
     }
     .task-card.is-hold {
       border-color: rgba(224, 144, 16, 0.45);
@@ -886,26 +969,63 @@
     .audit-list .audit-time {
       color: var(--text-dim);
       font-size: 0.72rem;
-      margin-bottom: 0.2rem;
+      margin-bottom: 0.25rem;
     }
 
     .audit-list .audit-action {
       font-weight: 650;
       color: var(--accent);
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      font-size: 0.78rem;
+      font-size: 0.88rem;
+      letter-spacing: 0.01em;
+    }
+
+    .audit-list .audit-actor {
+      color: var(--text);
+      font-size: 0.8rem;
+      margin-top: 0.2rem;
+    }
+
+    .audit-list .audit-actor .audit-email {
+      color: var(--text-dim);
+      font-size: 0.72rem;
+      margin-left: 0.35rem;
     }
 
     .audit-list .audit-label {
       color: var(--text);
-      margin-top: 0.15rem;
+      margin-top: 0.2rem;
+      font-size: 0.8rem;
     }
 
     .audit-list .audit-details {
       color: var(--text-muted);
-      font-size: 0.75rem;
-      margin-top: 0.2rem;
+      font-size: 0.78rem;
+      margin-top: 0.25rem;
       word-break: break-word;
+      line-height: 1.4;
+    }
+
+    .audit-list .audit-raw {
+      margin-top: 0.3rem;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    .audit-list .audit-raw summary {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .audit-list .audit-raw pre {
+      margin: 0.35rem 0 0;
+      padding: 0.4rem 0.5rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.68rem;
     }
 
     .audit-empty {
@@ -971,8 +1091,9 @@
         grid-template-rows: auto auto 1fr auto;
       }
       .app-dashboard {
+        grid-template-columns: 1fr;
         padding: 0.55rem 0.85rem;
-        gap: 0.45rem 0.75rem;
+        gap: 0.65rem;
       }
       .sidebar {
         display: none;
@@ -1497,6 +1618,24 @@
         <p class="auth-lead">We will email you an 8-digit code to verify your address.</p>
         <form id="form-signup" autocomplete="on">
           <div class="form-group">
+            <label for="signup-fullname">Full name</label>
+            <input id="signup-fullname" name="full_name" type="text" required autocomplete="name" maxlength="120" />
+          </div>
+          <div class="form-group">
+            <label for="signup-gender">Gender</label>
+            <select id="signup-gender" name="gender" required>
+              <option value="" disabled selected>Select…</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+              <option value="prefer_not_to_say">Prefer not to say</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="signup-birthday">Birthday</label>
+            <input id="signup-birthday" name="birthday" type="date" required />
+          </div>
+          <div class="form-group">
             <label for="signup-email">Email</label>
             <input id="signup-email" name="email" type="email" required autocomplete="username" maxlength="254" />
           </div>
@@ -1568,6 +1707,7 @@
         <div class="header-user" id="header-user" hidden>
           <span class="role-badge member" id="user-role-badge" title="Your role">Member</span>
           <span class="user-email" id="user-email" title=""></span>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-profile" title="Edit your profile">Profile</button>
           <button type="button" class="btn btn-ghost btn-sm" id="btn-signout" title="Sign out">Sign out</button>
         </div>
       </div>
@@ -1631,6 +1771,37 @@
         <button type="button" class="btn btn-ghost" id="confirm-cancel">Cancel</button>
         <button type="button" class="btn btn-danger" id="confirm-ok">Delete</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Profile editor -->
+  <div class="modal-backdrop" id="profile-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="profile-title">
+    <div class="modal" id="profile-modal">
+      <h3 id="profile-title">My profile</h3>
+      <form id="form-profile">
+        <div class="form-group">
+          <label for="profile-fullname">Full name</label>
+          <input id="profile-fullname" name="full_name" type="text" required maxlength="120" autocomplete="name" />
+        </div>
+        <div class="form-group">
+          <label for="profile-gender">Gender</label>
+          <select id="profile-gender" name="gender" required>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+            <option value="prefer_not_to_say">Prefer not to say</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="profile-birthday">Birthday</label>
+          <input id="profile-birthday" name="birthday" type="date" required />
+        </div>
+        <p class="field-hint">Used in the audit log so actions show your name, not only your email.</p>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" id="profile-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="profile-save">Save</button>
+        </div>
+      </form>
     </div>
   </div>
 
@@ -1746,7 +1917,7 @@
   const SELECTED_KEY_BASE = 'project-task-tracker:selected:v3';
   const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 };
   const STATUS_LABELS = { active: 'Active', 'on-hold': 'On hold', done: 'Done' };
-  const TASK_STATUS_LABELS = { pending: 'Pending', done: 'Done', hold: 'On hold' };
+  const TASK_STATUS_LABELS = { pending: 'Pending', done: 'Done', hold: 'On hold', completed: 'Completed' };
 
   // Client created after safe library load — never throw before nav wiring
   let supabase = null;
@@ -1757,6 +1928,9 @@
   let authView = 'signin'; // signin | signup | otp
   let pendingOtpEmail = '';
   let pendingOtpType = 'signup'; // signup | email
+  /** @type {{ full_name: string, gender: string, birthday: string }|null} */
+  let pendingProfileDetails = null;
+  let myFullName = '';
   let appBooted = false;
   let authListenerReady = false;
   let userRole = 'member'; // 'super' | 'member'
@@ -2401,7 +2575,7 @@
     }
     if (isSuperUser()) {
       try {
-        const pRes = await supabase.from('profiles').select('user_id, email, role').order('email', { ascending: true });
+        const pRes = await supabase.from('profiles').select('user_id, email, role, full_name').order('email', { ascending: true });
         if (!pRes.error) knownProfiles = pRes.data || [];
         // Enrich member emails from profiles
         const byId = {};
@@ -2488,7 +2662,7 @@
 
   function qaBadgeHtml(task) {
     const latest = latestQa(task.id);
-    const show = !!latest || task.status === 'done';
+    const show = !!latest || task.status === 'done' || task.status === 'completed';
     if (!show) return '';
     if (!latest) {
       return '<span class="qa-badge none" title="Not tested yet">QA: Not tested</span>';
@@ -2546,6 +2720,11 @@
   function openQaModal(taskId) {
     const t = state.tasks.find((x) => x.id === taskId);
     if (!t) return;
+    if (t.status !== 'done') {
+      const label = TASK_STATUS_LABELS[t.status] || t.status;
+      setSync('error', 'QA is only available when a task is Done (awaiting QA). Current status: ' + label + '.');
+      return;
+    }
     qaModalTaskId = taskId;
     const backdrop = document.getElementById('qa-backdrop');
     document.getElementById('qa-title').textContent = 'Check & test — ' + (t.title || 'Untitled task');
@@ -2617,23 +2796,18 @@
       renderQaHistory(taskId);
       render();
 
-      if (result === 'pass' && t.status !== 'done') {
-        const ok = await confirmAction({
-          title: 'Mark as Done?',
-          message: 'This check passed. Mark task <strong>“' + escapeHtml(t.title || 'Untitled') + '”</strong> as Done?',
-          confirmLabel: 'Mark Done',
-          danger: false,
-        });
-        if (ok) {
-          const prev = { ...t };
-          t.status = 'done';
-          t.lineupOrder = 0;
-          persistTaskStatusChange(t, prev, 'task.status');
-        }
-      } else if (result === 'fail' && t.status === 'done') {
+      if (result === 'pass') {
+        // QA Pass → Completed (verified). Automatic — do not leave as Done.
+        const prev = { ...t };
+        t.status = 'completed';
+        t.lineupOrder = 0;
+        await persistTaskStatusChange(t, prev, 'task.status');
+        setSync('ok', 'QA passed — task marked Completed.');
+        closeQaModal();
+      } else if (result === 'fail') {
         const ok = await confirmAction({
           title: 'Move back to Pending?',
-          message: 'This check failed. Move task <strong>“' + escapeHtml(t.title || 'Untitled') + '”</strong> back to Pending for fixes?',
+          message: 'This check failed. Move task <strong>“' + escapeHtml(t.title || 'Untitled') + '”</strong> back to Pending for fixes? (Cancel keeps it as Done awaiting retest.)',
           confirmLabel: 'Set Pending',
           danger: false,
         });
@@ -2641,7 +2815,7 @@
           const prev = { ...t };
           t.status = 'pending';
           assignPendingLineup(t);
-          persistTaskStatusChange(t, prev, 'task.status');
+          await persistTaskStatusChange(t, prev, 'task.status');
         }
       }
     } catch (err) {
@@ -2745,13 +2919,15 @@
   // ── Stats ──
   function taskStats(tasks) {
     const pending = tasks.filter((t) => t.status === 'pending').length;
-    const done = tasks.filter((t) => t.status === 'done').length;
+    const doneOnly = tasks.filter((t) => t.status === 'done').length;
+    const completed = tasks.filter((t) => t.status === 'completed').length;
     const hold = tasks.filter((t) => t.status === 'hold').length;
-    // Hold excluded from progress base (pending + done only)
+    // Progress "done" = Done (awaiting QA) + Completed (QA passed). Hold excluded from base.
+    const done = doneOnly + completed;
     const total = pending + done;
     const pctDone = total === 0 ? 0 : Math.round((done / total) * 100);
     const pctPending = total === 0 ? 0 : Math.round((pending / total) * 100);
-    return { total, done, pending, hold, pctDone, pctPending, allCount: tasks.length };
+    return { total, done, doneOnly, completed, pending, hold, pctDone, pctPending, allCount: tasks.length };
   }
 
   function projectTasks(projectId) {
@@ -2848,35 +3024,115 @@
       if (!supabase || !supabaseReady) return;
       const uid = userId || session?.user?.id || null;
       if (!uid) return;
+      const actorName = myFullName || null;
+      const baseDetails = details && typeof details === 'object' ? { ...details } : {};
+      if (actorName && !baseDetails.actorName) baseDetails.actorName = actorName;
       const row = {
         user_id: uid,
         user_email: userEmail || session?.user?.email || null,
+        user_full_name: actorName,
         action: action,
         entity_type: entityType || null,
         entity_id: entityId || null,
         entity_label: entityLabel || null,
-        details: details && typeof details === 'object' ? details : {},
+        details: baseDetails,
       };
-      const { error } = await supabase.from('audit_logs').insert(row);
+      let { error } = await supabase.from('audit_logs').insert(row);
+      if (error && /user_full_name|schema cache|column/i.test(error.message || '')) {
+        delete row.user_full_name;
+        ({ error } = await supabase.from('audit_logs').insert(row));
+      }
       if (error) throw error;
     } catch (err) {
       console.error('Audit log write failed:', err);
     }
   }
 
+
   function formatAuditTime(iso) {
     if (!iso) return '';
     try {
       const d = new Date(iso);
       if (Number.isNaN(d.getTime())) return String(iso);
-      return d.toLocaleString(undefined, {
+      return d.toLocaleString('en-GB', {
         year: 'numeric', month: 'short', day: 'numeric',
         hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false,
       });
     } catch {
       return String(iso);
     }
   }
+
+  const AUDIT_ACTION_TITLES = {
+    'auth.signin': 'Signed in',
+    'auth.signout': 'Signed out',
+    'project.create': 'Created project',
+    'project.update': 'Updated project',
+    'project.delete': 'Deleted project',
+    'project.group_change': 'Changed project group',
+    'task.create': 'Created task',
+    'task.update': 'Updated task',
+    'task.delete': 'Deleted task',
+    'task.status': 'Changed task status',
+    'task.hold': 'Put task on hold',
+    'task.qa_check': 'Logged QA check',
+    'tasks.import': 'Imported tasks',
+    'group.create': 'Created group',
+    'group.rename': 'Renamed group',
+    'group.delete': 'Deleted group',
+    'group.member_add': 'Added group member',
+    'group.member_remove': 'Removed group member',
+    'delete_request.create': 'Requested delete',
+    'delete_request.approve': 'Approved delete',
+    'delete_request.reject': 'Rejected delete',
+    'profile.update': 'Updated profile',
+  };
+
+  function humanizeAuditAction(action) {
+    if (!action) return 'Activity';
+    if (AUDIT_ACTION_TITLES[action]) return AUDIT_ACTION_TITLES[action];
+    return String(action).split('.').map((p) => p.replace(/_/g, ' '))
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' · ');
+  }
+
+  function prettyAuditDetails(details, action) {
+    if (!details || typeof details !== 'object') return '';
+    const d = details;
+    const bits = [];
+    const statusLabel = (s) => (TASK_STATUS_LABELS[s] || s);
+    if (d.prevStatus != null || d.status != null || d.prev_status != null || d.newStatus != null) {
+      const from = d.prevStatus ?? d.prev_status;
+      const to = d.status ?? d.newStatus ?? d.new_status;
+      if (from != null && to != null) bits.push('Status: ' + statusLabel(from) + ' → ' + statusLabel(to));
+      else if (to != null) bits.push('Status set to ' + statusLabel(to));
+    }
+    if (d.result) bits.push('QA result: ' + (d.result === 'pass' ? 'Pass' : (d.result === 'fail' ? 'Fail' : d.result)));
+    if (d.attemptNo != null || d.attempt_no != null) bits.push('Attempt #' + (d.attemptNo ?? d.attempt_no));
+    if (d.method) bits.push('Method: ' + d.method);
+    if (d.priority && d.prevPriority && d.priority !== d.prevPriority) bits.push('Priority: ' + d.prevPriority + ' → ' + d.priority);
+    else if (d.priority && action && String(action).includes('create')) bits.push('Priority: ' + d.priority);
+    if (d.groupName || d.group_name) bits.push('Group: ' + (d.groupName || d.group_name));
+    if (d.count != null) bits.push('Count: ' + d.count);
+    if (d.imported != null) bits.push('Imported: ' + d.imported);
+    if (d.full_name) bits.push('Name: ' + d.full_name);
+    if (d.notes) {
+      const note = String(d.notes);
+      bits.push('Notes: ' + (note.length > 80 ? note.slice(0, 77) + '…' : note));
+    }
+    if (!bits.length) {
+      Object.keys(d).filter((k) => k !== 'actorName').slice(0, 5).forEach((k) => {
+        let v = d[k];
+        if (v == null) return;
+        if (typeof v === 'object') v = JSON.stringify(v);
+        v = String(v);
+        if (v.length > 50) v = v.slice(0, 47) + '…';
+        bits.push(k + ': ' + v);
+      });
+    }
+    return bits.join(' · ');
+  }
+
 
   function shortAuditDetails(details) {
     if (!details || typeof details !== 'object') return '';
@@ -2904,26 +3160,57 @@
         bodyEl.innerHTML = '<div class="audit-empty">Sign in to view your audit log.</div>';
         return;
       }
-      const { data, error } = await supabase
+      let rows = [];
+      let q = await supabase
         .from('audit_logs')
-        .select('id, action, entity_type, entity_id, entity_label, details, created_at')
+        .select('id, action, entity_type, entity_id, entity_label, details, created_at, user_email, user_full_name')
         .order('created_at', { ascending: false })
         .limit(100);
-      if (error) throw error;
-      const rows = data || [];
+      if (q.error && /user_full_name|column|schema cache/i.test(q.error.message || '')) {
+        q = await supabase
+          .from('audit_logs')
+          .select('id, action, entity_type, entity_id, entity_label, details, created_at, user_email')
+          .order('created_at', { ascending: false })
+          .limit(100);
+      }
+      if (q.error) throw q.error;
+      rows = q.data || [];
       if (!rows.length) {
         bodyEl.innerHTML = '<div class="audit-empty">No audit entries yet.</div>';
         return;
       }
       bodyEl.innerHTML = '<ul class="audit-list" role="list">' + rows.map((r) => {
-        const label = r.entity_label ? escapeHtml(r.entity_label) : '<span style="color:var(--text-dim)">—</span>';
-        const det = shortAuditDetails(r.details);
+        const title = escapeHtml(humanizeAuditAction(r.action));
+        const actorName = (r.user_full_name || (r.details && r.details.actorName) || '').trim();
+        const email = r.user_email || '';
+        const actor = actorName
+          ? ('<div class="audit-actor"><strong>' + escapeHtml(actorName) + '</strong>' +
+             (email ? '<span class="audit-email">' + escapeHtml(email) + '</span>' : '') + '</div>')
+          : (email
+            ? '<div class="audit-actor"><strong>' + escapeHtml(email) + '</strong></div>'
+            : '<div class="audit-actor"><span class="audit-email">Unknown actor</span></div>');
+        const label = r.entity_label
+          ? '<div class="audit-label">' + escapeHtml(r.entity_label) + '</div>'
+          : '';
+        const detLine = prettyAuditDetails(r.details, r.action);
+        const det = detLine
+          ? '<div class="audit-details">' + escapeHtml(detLine) + '</div>'
+          : '';
+        let raw = '';
+        try {
+          if (r.details && typeof r.details === 'object' && Object.keys(r.details).length) {
+            raw = '<details class="audit-raw"><summary>Raw details</summary><pre>' +
+              escapeHtml(JSON.stringify(r.details, null, 2)) + '</pre></details>';
+          }
+        } catch (_) { /* ignore */ }
         return (
           '<li>' +
             '<div class="audit-time">' + escapeHtml(formatAuditTime(r.created_at)) + '</div>' +
-            '<div class="audit-action">' + escapeHtml(r.action || '') + '</div>' +
-            '<div class="audit-label">' + label + '</div>' +
-            (det ? '<div class="audit-details">' + escapeHtml(det) + '</div>' : '') +
+            '<div class="audit-action">' + title + '</div>' +
+            actor +
+            label +
+            det +
+            raw +
           '</li>'
         );
       }).join('') + '</ul>';
@@ -2933,6 +3220,7 @@
         escapeHtml(err.message || 'unknown error') + '</div>';
     }
   }
+
 
   function openAuditLog() {
     const backdrop = document.getElementById('audit-backdrop');
@@ -3007,25 +3295,73 @@
 
   async function ensureProfile() {
     userRole = 'member';
+    myFullName = '';
     try {
       if (!supabase || !session?.user) return;
       const { data, error } = await supabase.rpc('ensure_my_profile');
       if (error) throw error;
-      const row = Array.isArray(data) ? data[0] : data;
+      let row = Array.isArray(data) ? data[0] : data;
       userRole = (row && row.role === 'super') ? 'super' : 'member';
-    } catch (err) {
-      console.error('ensure_my_profile failed:', err);
-      // Fallback: try reading own profile row
+
+      // Soft-load profile details (columns may be missing until SQL is run)
       try {
         const uid = currentUserId();
-        const { data } = await supabase.from('profiles').select('role').eq('user_id', uid).maybeSingle();
+        const sel = await supabase
+          .from('profiles')
+          .select('full_name, gender, birthday, email, role')
+          .eq('user_id', uid)
+          .maybeSingle();
+        if (!sel.error && sel.data) {
+          row = { ...row, ...sel.data };
+          if (sel.data.role === 'super') userRole = 'super';
+        } else if (sel.error) {
+          console.warn('Profile detail columns may be missing:', sel.error.message);
+        }
+      } catch (e2) {
+        console.warn('Profile details fetch soft-failed:', e2);
+      }
+
+      // Apply pending signup details (OTP flow) if present
+      if (pendingProfileDetails) {
+        const patch = {
+          full_name: pendingProfileDetails.full_name || null,
+          gender: pendingProfileDetails.gender || null,
+          birthday: pendingProfileDetails.birthday || null,
+        };
+        try {
+          const uid = currentUserId();
+          const { error: upErr } = await supabase.from('profiles').update(patch).eq('user_id', uid);
+          if (!upErr) {
+            row = { ...row, ...patch };
+            pendingProfileDetails = null;
+          } else {
+            console.warn('Could not save profile details yet:', upErr.message);
+          }
+        } catch (e3) {
+          console.warn(e3);
+        }
+      }
+
+      myFullName = (row && row.full_name) ? String(row.full_name).trim() : '';
+      // Prefer metadata if still empty
+      if (!myFullName) {
+        const meta = session?.user?.user_metadata || {};
+        if (meta.full_name) myFullName = String(meta.full_name).trim();
+      }
+    } catch (err) {
+      console.error('ensure_my_profile failed:', err);
+      try {
+        const uid = currentUserId();
+        const { data } = await supabase.from('profiles').select('role, full_name').eq('user_id', uid).maybeSingle();
         if (data?.role === 'super') userRole = 'super';
+        if (data?.full_name) myFullName = String(data.full_name).trim();
       } catch (e2) {
         console.error(e2);
       }
     }
     updateRoleBadge();
   }
+
 
   function updatePendingApprovalsButton() {
     const btn = document.getElementById('btn-delete-approvals');
@@ -3909,7 +4245,8 @@
       .replace(/_/g, ' ')
       .replace(/\s+/g, ' ');
     if (!s) return 'pending';
-    if (s === 'done' || s === 'complete' || s === 'completed') return 'done';
+    if (s === 'completed' || s === 'complete' || s === 'verified') return 'completed';
+    if (s === 'done') return 'done';
     if (s === 'pending' || s === 'open' || s === 'todo' || s === 'to do') return 'pending';
     if (s === 'hold' || s === 'on hold') return 'hold';
     return null;
@@ -4385,8 +4722,10 @@
         t.notes = data.notes.trim();
         t.priority = data.priority;
         t.dueDate = data.dueDate || '';
+        // Completed only via QA Pass — never accept from the edit form
+        if (data.status === 'completed') data.status = 'done';
         t.status = data.status;
-        if (t.status === 'done' || t.status === 'hold') {
+        if (t.status === 'done' || t.status === 'hold' || t.status === 'completed') {
           t.lineupOrder = 0;
         } else if (!wasPending && t.status === 'pending') {
           const open = openTasksSorted().filter((x) => x.id !== t.id);
@@ -4465,7 +4804,13 @@
       try {
         await runSync('Saving…', async () => {
           const { error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', t.id);
-          if (error) throw error;
+          if (error) {
+            if (t.status === 'completed' && /check|constraint|status/i.test(error.message || '')) {
+              throw new Error((error.message || 'Status rejected') +
+                ' — run schema-task-completed.sql in Supabase to allow status “completed”.');
+            }
+            throw error;
+          }
           await writeAudit({
             action: auditAction || 'task.status',
             entityType: 'task',
@@ -4474,9 +4819,11 @@
             details: { status: t.status, prevStatus: prev.status },
           });
         });
-      } catch {
+      } catch (err) {
+        console.error(err);
         Object.assign(t, prev);
         render();
+        setSync('error', err.message || 'Could not save status');
       }
     })();
   }
@@ -4492,10 +4839,10 @@
     if (!t) return;
     const prev = { ...t };
     if (t.status === 'pending') {
-      t.status = 'done';
+      t.status = 'done'; // Done = ready for QA (not Completed)
       t.lineupOrder = 0;
-    } else if (t.status === 'done' || t.status === 'hold') {
-      // done → pending; hold → resume as pending
+    } else if (t.status === 'done' || t.status === 'hold' || t.status === 'completed') {
+      // done/completed/hold → pending
       t.status = 'pending';
       assignPendingLineup(t);
     }
@@ -4541,8 +4888,9 @@
         <select id="f-tstatus" name="status">
           <option value="pending" ${t.status === 'pending' ? 'selected' : ''}>Pending</option>
           <option value="hold" ${t.status === 'hold' ? 'selected' : ''}>On hold</option>
-          <option value="done" ${t.status === 'done' ? 'selected' : ''}>Done</option>
+          <option value="done" ${t.status === 'done' || t.status === 'completed' ? 'selected' : ''}>Done (awaiting QA)</option>
         </select>
+        ${t.status === 'completed' ? '<p class="field-hint">This task is <strong>Completed</strong> (QA passed). Saving with Done moves it back to awaiting QA. Completed is only set by a passing QA check.</p>' : '<p class="field-hint">Completed is set only when QA passes — not from this menu.</p>'}
       </div>
     `;
   }
@@ -4598,6 +4946,10 @@
     }
     if (!document.getElementById('approvals-backdrop').hidden) {
       closeDeleteApprovals();
+      return;
+    }
+    if (!document.getElementById('profile-backdrop')?.hidden) {
+      closeProfileModal();
       return;
     }
     if (!document.getElementById('audit-backdrop').hidden) {
@@ -4732,7 +5084,9 @@
     const total = list.length;
     const done = list.filter((p) => p.status === 'done').length;
     const pending = list.filter((p) => p.status !== 'done').length;
-    return { total, done, pending };
+    const pctDone = total === 0 ? 0 : Math.round((done / total) * 100);
+    const pctPending = total === 0 ? 0 : (100 - pctDone);
+    return { total, done, pending, pctDone, pctPending };
   }
 
   function renderOverall() {
@@ -4741,19 +5095,44 @@
     const ps = projectStatusStats(state.projects);
     const ts = taskStats(state.tasks);
     el.innerHTML = `
-      <span class="dash-label">Projects</span>
-      <div class="dash-pills" role="group" aria-label="Project counts">
-        <div class="pct-chip total"><strong>${ps.total}</strong> total</div>
-        <div class="pct-chip done"><strong>${ps.done}</strong> done</div>
-        <div class="pct-chip pending"><strong>${ps.pending}</strong> pending</div>
-      </div>
-      <span class="dash-label">Tasks</span>
-      <div class="dash-pills" role="group" aria-label="Task counts">
-        <div class="pct-chip total"><strong>${ts.total}</strong> total</div>
-        <div class="pct-chip done"><strong>${ts.done}</strong> done</div>
-        <div class="pct-chip pending"><strong>${ts.pending}</strong> pending</div>
-        ${ts.hold ? '<div class="pct-chip hold"><strong>' + ts.hold + '</strong> on hold</div>' : ''}
-      </div>
+      <section class="dash-panel" aria-label="Projects overview">
+        <h3 class="dash-panel-title">Projects</h3>
+        <p class="dash-panel-hint">Overall project completion by status (Done vs not Done).</p>
+        <div class="dash-pills" role="group" aria-label="Project counts">
+          <div class="pct-chip total"><strong>${ps.total}</strong> Total</div>
+          <div class="pct-chip done"><strong>${ps.done}</strong> Done</div>
+          <div class="pct-chip pending"><strong>${ps.pending}</strong> Pending</div>
+        </div>
+        <div class="dash-progress">
+          <div class="progress-bar" role="progressbar" aria-valuenow="${ps.pctDone}" aria-valuemin="0" aria-valuemax="100" aria-label="Projects percent complete">
+            <span style="width:${ps.pctDone}%"></span>
+          </div>
+          <div class="dash-pct-row">
+            <div class="pct-chip done"><strong>${ps.pctDone}%</strong> Complete</div>
+            <div class="pct-chip pending"><strong>${ps.pctPending}%</strong> Pending</div>
+          </div>
+        </div>
+      </section>
+      <section class="dash-panel" aria-label="Tasks overview">
+        <h3 class="dash-panel-title">Tasks</h3>
+        <p class="dash-panel-hint">Counts across all projects. Done includes awaiting QA; Completed means QA passed.</p>
+        <div class="dash-pills" role="group" aria-label="Task counts">
+          <div class="pct-chip total"><strong>${ts.allCount}</strong> Total</div>
+          <div class="pct-chip done"><strong>${ts.doneOnly}</strong> Done</div>
+          <div class="pct-chip pending"><strong>${ts.pending}</strong> Pending</div>
+          ${ts.hold ? '<div class="pct-chip hold"><strong>' + ts.hold + '</strong> On Hold</div>' : ''}
+          <div class="pct-chip done"><strong>${ts.completed}</strong> Completed</div>
+        </div>
+        <div class="dash-progress">
+          <div class="progress-bar" role="progressbar" aria-valuenow="${ts.pctDone}" aria-valuemin="0" aria-valuemax="100" aria-label="Tasks percent complete">
+            <span style="width:${ts.pctDone}%"></span>
+          </div>
+          <div class="dash-pct-row">
+            <div class="pct-chip done"><strong>${ts.pctDone}%</strong> Complete</div>
+            <div class="pct-chip pending"><strong>${ts.pctPending}%</strong> Pending</div>
+          </div>
+        </div>
+      </section>
     `;
   }
 
@@ -4816,8 +5195,9 @@
     if (taskFilter === 'pending') tasks = all.filter((t) => t.status === 'pending');
     if (taskFilter === 'done') tasks = all.filter((t) => t.status === 'done');
     if (taskFilter === 'hold') tasks = all.filter((t) => t.status === 'hold');
+    if (taskFilter === 'completed') tasks = all.filter((t) => t.status === 'completed');
 
-    const STATUS_SORT = { pending: 0, hold: 1, done: 2 };
+    const STATUS_SORT = { pending: 0, hold: 1, done: 2, completed: 3 };
     tasks = tasks.slice().sort((a, b) => {
       const sa = STATUS_SORT[a.status] ?? 9;
       const sb = STATUS_SORT[b.status] ?? 9;
@@ -4873,7 +5253,8 @@
           <button type="button" role="tab" data-filter="all" class="${taskFilter === 'all' ? 'active' : ''}" aria-selected="${taskFilter === 'all'}">All (${all.length})</button>
           <button type="button" role="tab" data-filter="pending" class="${taskFilter === 'pending' ? 'active' : ''}" aria-selected="${taskFilter === 'pending'}">Pending (${stats.pending})</button>
           <button type="button" role="tab" data-filter="hold" class="${taskFilter === 'hold' ? 'active' : ''}" aria-selected="${taskFilter === 'hold'}">Hold (${stats.hold})</button>
-          <button type="button" role="tab" data-filter="done" class="${taskFilter === 'done' ? 'active' : ''}" aria-selected="${taskFilter === 'done'}">Done (${stats.done})</button>
+          <button type="button" role="tab" data-filter="done" class="${taskFilter === 'done' ? 'active' : ''}" aria-selected="${taskFilter === 'done'}">Done (${stats.doneOnly})</button>
+          <button type="button" role="tab" data-filter="completed" class="${taskFilter === 'completed' ? 'active' : ''}" aria-selected="${taskFilter === 'completed'}">Completed (${stats.completed})</button>
         </div>
         <div class="task-toolbar-actions">
           <button type="button" class="btn btn-ghost" id="btn-download-template" title="Download a CSV template, or note that Tuan-Tuan Excel checklists can be imported directly">Download template</button>
@@ -4925,25 +5306,29 @@
       : '';
     const statusBadge = t.status === 'hold'
       ? `<span class="badge on-hold" title="On hold">${TASK_STATUS_LABELS.hold}</span>`
-      : '';
+      : (t.status === 'completed'
+        ? `<span class="badge completed" title="Completed (QA passed)">${TASK_STATUS_LABELS.completed}</span>`
+        : (t.status === 'done'
+          ? `<span class="badge done" title="Done — awaiting QA">Done</span>`
+          : ''));
     const qaBadge = qaBadgeHtml(t);
-    const cardClass = t.status === 'done' ? 'is-done' : (t.status === 'hold' ? 'is-hold' : '');
+    const cardClass = t.status === 'completed' ? 'is-completed' : (t.status === 'done' ? 'is-done' : (t.status === 'hold' ? 'is-hold' : ''));
     const checkLabel =
-      t.status === 'done' ? 'Mark as pending' :
+      (t.status === 'done' || t.status === 'completed') ? 'Mark as pending' :
       t.status === 'hold' ? 'Resume (mark as pending)' :
       'Mark as done';
-    const holdBtn = t.status !== 'hold'
+    const holdBtn = (t.status !== 'hold' && t.status !== 'completed')
       ? `<button type="button" class="btn-icon" data-action="hold-task" data-id="${t.id}" title="Put on hold" aria-label="Put on hold">⏸</button>`
       : '';
     return `
       <li class="task-card ${cardClass}" data-id="${t.id}">
         <button type="button"
-                class="checkbox ${t.status === 'done' ? 'checked' : ''}"
+                class="checkbox ${(t.status === 'done' || t.status === 'completed') ? 'checked' : ''}"
                 data-action="toggle-task"
                 data-id="${t.id}"
                 aria-label="${checkLabel}"
-                aria-pressed="${t.status === 'done'}">
-          ${t.status === 'done' ? '✓' : ''}
+                aria-pressed="${t.status === 'done' || t.status === 'completed'}">
+          ${(t.status === 'done' || t.status === 'completed') ? '✓' : ''}
         </button>
         <div class="task-body">
           <div class="task-title">${escapeHtml(t.title)}</div>
@@ -4956,7 +5341,9 @@
           </div>
         </div>
         <div class="task-actions">
-          <button type="button" class="btn-icon" data-action="qa-task" data-id="${t.id}" title="Check &amp; test (QA)" aria-label="Check and test">📋</button>
+          ${t.status === 'done'
+            ? `<button type="button" class="btn-icon" data-action="qa-task" data-id="${t.id}" title="Check &amp; test (QA)" aria-label="Check and test">📋</button>`
+            : `<button type="button" class="btn-icon qa-btn-disabled" disabled title="QA only when status is Done (awaiting QA)" aria-label="QA unavailable">📋</button>`}
           ${holdBtn}
           <button type="button" class="btn-icon" data-action="edit-task" data-id="${t.id}" title="Edit" aria-label="Edit task">✎</button>
           <button type="button" class="btn-icon danger" data-action="delete-task" data-id="${t.id}" title="Delete task" aria-label="Delete task">✕</button>
@@ -5113,9 +5500,24 @@
   document.getElementById('form-signup').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!requireSupabaseClient()) return;
+    const fullName = (document.getElementById('signup-fullname')?.value || '').trim();
+    const gender = document.getElementById('signup-gender')?.value || '';
+    const birthday = document.getElementById('signup-birthday')?.value || '';
     const email = document.getElementById('signup-email').value.trim();
     const password = document.getElementById('signup-password').value;
     const password2 = document.getElementById('signup-password2').value;
+    if (!fullName) {
+      setAuthMsg('Please enter your full name.', 'error');
+      return;
+    }
+    if (!gender) {
+      setAuthMsg('Please select a gender.', 'error');
+      return;
+    }
+    if (!birthday) {
+      setAuthMsg('Please enter your birthday.', 'error');
+      return;
+    }
     if (password !== password2) {
       setAuthMsg('Passwords do not match.', 'error');
       return;
@@ -5127,12 +5529,14 @@
     const btn = document.getElementById('btn-signup');
     setBusy(btn, true, 'Creating…');
     setAuthMsg('');
+    pendingProfileDetails = { full_name: fullName, gender, birthday };
     try {
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: 'https://leohrkcac.github.io/task-manager/',
+          data: { full_name: fullName, gender, birthday },
         },
       });
       if (error) throw error;
@@ -5272,6 +5676,81 @@
     }
   });
 
+  
+  async function openProfileModal() {
+    const backdrop = document.getElementById('profile-backdrop');
+    if (!backdrop) return;
+    let fullName = myFullName || '';
+    let gender = 'prefer_not_to_say';
+    let birthday = '';
+    try {
+      if (supabase && session?.user) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('full_name, gender, birthday')
+          .eq('user_id', currentUserId())
+          .maybeSingle();
+        if (!error && data) {
+          fullName = data.full_name || fullName;
+          gender = data.gender || gender;
+          birthday = data.birthday || '';
+        }
+      }
+    } catch (err) {
+      console.warn(err);
+    }
+    document.getElementById('profile-fullname').value = fullName;
+    document.getElementById('profile-gender').value = gender;
+    document.getElementById('profile-birthday').value = birthday || '';
+    backdrop.hidden = false;
+    setTimeout(() => document.getElementById('profile-fullname').focus(), 30);
+  }
+
+  function closeProfileModal() {
+    const backdrop = document.getElementById('profile-backdrop');
+    if (backdrop) backdrop.hidden = true;
+  }
+
+  async function saveProfile(ev) {
+    ev.preventDefault();
+    if (!requireSupabaseClient()) return;
+    const fullName = document.getElementById('profile-fullname').value.trim();
+    const gender = document.getElementById('profile-gender').value;
+    const birthday = document.getElementById('profile-birthday').value;
+    if (!fullName) {
+      setSync('error', 'Full name is required.');
+      return;
+    }
+    const btn = document.getElementById('profile-save');
+    setBusy(btn, true, 'Saving…');
+    try {
+      const uid = currentUserId();
+      const { error } = await supabase.from('profiles').update({
+        full_name: fullName,
+        gender: gender || null,
+        birthday: birthday || null,
+      }).eq('user_id', uid);
+      if (error) throw error;
+      myFullName = fullName;
+      await writeAudit({
+        action: 'profile.update',
+        entityType: 'profile',
+        entityId: uid,
+        entityLabel: fullName,
+        details: { full_name: fullName, gender, birthday },
+      });
+      setSync('ok', 'Profile saved.');
+      closeProfileModal();
+    } catch (err) {
+      console.error(err);
+      setSync('error', 'Could not save profile: ' + (err.message || 'error') +
+        ' (Run schema-profile-details.sql in Supabase if columns are missing.)');
+    } finally {
+      setBusy(btn, false, 'Save');
+    }
+  }
+
+
   document.getElementById('btn-signout').addEventListener('click', async () => {
     if (!requireSupabaseClient()) return;
     try {
@@ -5283,6 +5762,13 @@
         entityLabel: email,
         details: {},
       });
+  document.getElementById('btn-profile')?.addEventListener('click', () => openProfileModal());
+  document.getElementById('profile-cancel')?.addEventListener('click', () => closeProfileModal());
+  document.getElementById('form-profile')?.addEventListener('submit', saveProfile);
+  document.getElementById('profile-backdrop')?.addEventListener('click', (e) => {
+    if (e.target === document.getElementById('profile-backdrop')) closeProfileModal();
+  });
+
       await supabase.auth.signOut();
     } catch (err) {
       console.error(err);
