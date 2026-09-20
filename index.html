@@ -304,8 +304,8 @@
       grid-column: 1 / -1;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 0.85rem 1.25rem;
-      padding: 0.75rem 1.25rem;
+      gap: 0.55rem 1rem;
+      padding: 0.5rem 1.25rem;
       background: var(--bg-elevated);
       border-bottom: 1px solid var(--border);
       align-items: stretch;
@@ -314,29 +314,36 @@
       background: var(--bg);
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      padding: 0.7rem 0.85rem 0.8rem;
+      padding: 0.45rem 0.7rem 0.5rem;
       min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: 0.45rem;
+      gap: 0.35rem;
     }
     .app-dashboard .dash-panel-title {
-      font-size: 0.78rem;
+      font-size: 0.72rem;
       font-weight: 700;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       color: var(--text);
       margin: 0;
-      display: flex;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 0.5rem;
     }
     .app-dashboard .dash-panel-hint {
-      font-size: 0.7rem;
-      color: var(--text-dim);
-      margin: -0.15rem 0 0.1rem;
-      line-height: 1.3;
+      display: none;
+    }
+    .app-dashboard .dash-stats-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.4rem 0.55rem;
+    }
+    .app-dashboard .dash-sep {
+      width: 1px;
+      align-self: stretch;
+      min-height: 1.6rem;
+      background: var(--border);
+      flex: 0 0 1px;
+      margin: 0 0.1rem;
     }
     .app-dashboard .dash-label {
       font-size: 0.72rem;
@@ -349,7 +356,12 @@
     .app-dashboard .dash-pills {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.45rem;
+      gap: 0.35rem;
+      align-items: center;
+    }
+    .app-dashboard .dash-bar-slim {
+      height: 5px;
+      margin: 0;
     }
     .app-dashboard .pct-chip {
       min-width: 4.5rem;
@@ -972,6 +984,33 @@
 
     .audit-list li:last-child { border-bottom: none; }
 
+    .audit-list .audit-meta-line {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.35rem 0.5rem;
+      margin-bottom: 0.45rem;
+      text-align: left;
+      color: var(--text);
+      font-size: 0.82rem;
+    }
+    .audit-list .audit-meta-part {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.3rem;
+      min-width: 0;
+    }
+    .audit-list .audit-meta-sep {
+      color: var(--text-dim);
+      user-select: none;
+    }
+    .audit-list .audit-meta-line .audit-k {
+      padding-top: 0;
+    }
+    .audit-list .audit-meta-line .audit-v {
+      font-size: 0.82rem;
+    }
+
     .audit-list .audit-row {
       display: grid;
       grid-template-columns: 5.5rem 1fr;
@@ -1020,7 +1059,7 @@
 
     .audit-list .audit-raw {
       margin-top: 0.35rem;
-      margin-left: 5.5rem;
+      margin-left: 0;
       font-size: 0.7rem;
       color: var(--text-dim);
       text-align: left;
@@ -3176,7 +3215,7 @@
       if (Number.isNaN(d.getTime())) return { date: String(iso), time: '' };
       return {
         date: d.toLocaleDateString('en-GB', { year: 'numeric', month: 'short', day: 'numeric' }),
-        time: d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
+        time: d.toLocaleTimeString('en-GB', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }),
       };
     } catch {
       return { date: String(iso), time: '' };
@@ -3219,8 +3258,9 @@
         const title = escapeHtml(humanizeAuditAction(r.action));
         const actorName = (r.user_full_name || (r.details && r.details.actorName) || '').trim();
         const email = r.user_email || '';
+        // Full name only when present — never show email/username alongside it
         const userHtml = actorName
-          ? (escapeHtml(actorName) + (email ? '<span class="audit-email">' + escapeHtml(email) + '</span>' : ''))
+          ? escapeHtml(actorName)
           : (email ? escapeHtml(email) : 'Unknown user');
         const item = r.entity_label ? escapeHtml(r.entity_label) : '—';
         const detLine = prettyAuditDetails(r.details, r.action);
@@ -3234,9 +3274,13 @@
         } catch (_) { /* ignore */ }
         return (
           '<li>' +
-            '<div class="audit-row"><span class="audit-k">Date</span><span class="audit-v">' + escapeHtml(dt.date) + '</span></div>' +
-            '<div class="audit-row"><span class="audit-k">Time</span><span class="audit-v">' + escapeHtml(dt.time) + '</span></div>' +
-            '<div class="audit-row"><span class="audit-k">User</span><span class="audit-v">' + userHtml + '</span></div>' +
+            '<div class="audit-meta-line">' +
+              '<span class="audit-meta-part"><span class="audit-k">Date</span> <span class="audit-v">' + escapeHtml(dt.date) + '</span></span>' +
+              '<span class="audit-meta-sep">·</span>' +
+              '<span class="audit-meta-part"><span class="audit-k">Time</span> <span class="audit-v">' + escapeHtml(dt.time) + '</span></span>' +
+              '<span class="audit-meta-sep">·</span>' +
+              '<span class="audit-meta-part"><span class="audit-k">User</span> <span class="audit-v">' + userHtml + '</span></span>' +
+            '</div>' +
             '<div class="audit-row"><span class="audit-k">Activity</span><span class="audit-v activity">' + title + '</span></div>' +
             '<div class="audit-row"><span class="audit-k">Item</span><span class="audit-v">' + item + '</span></div>' +
             (detLine
@@ -5130,40 +5174,40 @@
     el.innerHTML = `
       <section class="dash-panel" aria-label="Projects overview">
         <h3 class="dash-panel-title">Projects</h3>
-        <p class="dash-panel-hint">Overall project completion by status (Done vs not Done).</p>
-        <div class="dash-pills" role="group" aria-label="Project counts">
-          <div class="pct-chip total"><strong>${ps.total}</strong> Total</div>
-          <div class="pct-chip done"><strong>${ps.done}</strong> Done</div>
-          <div class="pct-chip pending"><strong>${ps.pending}</strong> Pending</div>
-        </div>
-        <div class="dash-progress">
-          <div class="progress-bar" role="progressbar" aria-valuenow="${ps.pctDone}" aria-valuemin="0" aria-valuemax="100" aria-label="Projects percent complete">
-            <span style="width:${ps.pctDone}%"></span>
+        <div class="dash-stats-row" role="group" aria-label="Project counts and percentages">
+          <div class="dash-pills">
+            <div class="pct-chip total"><strong>${ps.total}</strong> Total</div>
+            <div class="pct-chip done"><strong>${ps.done}</strong> Done</div>
+            <div class="pct-chip pending"><strong>${ps.pending}</strong> Pending</div>
           </div>
-          <div class="dash-pct-row">
+          <span class="dash-sep" aria-hidden="true"></span>
+          <div class="dash-pills dash-pcts">
             <div class="pct-chip done"><strong>${ps.pctDone}%</strong> Complete</div>
             <div class="pct-chip pending"><strong>${ps.pctPending}%</strong> Pending</div>
           </div>
         </div>
+        <div class="progress-bar dash-bar-slim" role="progressbar" aria-valuenow="${ps.pctDone}" aria-valuemin="0" aria-valuemax="100" aria-label="Projects percent complete">
+          <span style="width:${ps.pctDone}%"></span>
+        </div>
       </section>
       <section class="dash-panel" aria-label="Tasks overview">
         <h3 class="dash-panel-title">Tasks</h3>
-        <p class="dash-panel-hint">Counts across all projects. Done includes awaiting QA; Completed means QA passed.</p>
-        <div class="dash-pills" role="group" aria-label="Task counts">
-          <div class="pct-chip total"><strong>${ts.allCount}</strong> Total</div>
-          <div class="pct-chip done"><strong>${ts.doneOnly}</strong> Done</div>
-          <div class="pct-chip pending"><strong>${ts.pending}</strong> Pending</div>
-          ${ts.hold ? '<div class="pct-chip hold"><strong>' + ts.hold + '</strong> On Hold</div>' : ''}
-          <div class="pct-chip done"><strong>${ts.completed}</strong> Completed</div>
-        </div>
-        <div class="dash-progress">
-          <div class="progress-bar" role="progressbar" aria-valuenow="${ts.pctDone}" aria-valuemin="0" aria-valuemax="100" aria-label="Tasks percent complete">
-            <span style="width:${ts.pctDone}%"></span>
+        <div class="dash-stats-row" role="group" aria-label="Task counts and percentages">
+          <div class="dash-pills">
+            <div class="pct-chip total"><strong>${ts.allCount}</strong> Total</div>
+            <div class="pct-chip done"><strong>${ts.doneOnly}</strong> Done</div>
+            <div class="pct-chip pending"><strong>${ts.pending}</strong> Pending</div>
+            ${ts.hold ? '<div class="pct-chip hold"><strong>' + ts.hold + '</strong> On Hold</div>' : ''}
+            <div class="pct-chip done"><strong>${ts.completed}</strong> Completed</div>
           </div>
-          <div class="dash-pct-row">
+          <span class="dash-sep" aria-hidden="true"></span>
+          <div class="dash-pills dash-pcts">
             <div class="pct-chip done"><strong>${ts.pctDone}%</strong> Complete</div>
             <div class="pct-chip pending"><strong>${ts.pctPending}%</strong> Pending</div>
           </div>
+        </div>
+        <div class="progress-bar dash-bar-slim" role="progressbar" aria-valuenow="${ts.pctDone}" aria-valuemin="0" aria-valuemax="100" aria-label="Tasks percent complete">
+          <span style="width:${ts.pctDone}%"></span>
         </div>
       </section>
     `;
