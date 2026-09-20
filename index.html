@@ -1061,6 +1061,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
 <body class="auth-only">
   <div class="auth-gate" id="auth-gate" aria-label="Authentication">
@@ -2162,7 +2163,7 @@
   }
 
 
-  // ── CSV import / template ──
+  // ── Task import / template (CSV + Excel checklist) ──
   const TASK_CSV_HEADERS = ['title', 'notes', 'priority', 'due_date', 'status'];
   const TASK_CSV_TEMPLATE = [
     TASK_CSV_HEADERS.join(','),
@@ -2170,6 +2171,8 @@
     '"Update colour palette","Sample — replace with your own notes",medium,,pending',
     '"Archive old files","Sample row — status done",low,,done',
   ].join('\n') + '\n';
+
+  const TUAN_TUAN_CLIENT = 'Tuan-Tuan Greenhills';
 
   function downloadTaskTemplate() {
     const blob = new Blob([TASK_CSV_TEMPLATE], { type: 'text/csv;charset=utf-8' });
@@ -2181,6 +2184,12 @@
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    alert(
+      'Downloaded the simple CSV template (columns: title, notes, priority, due_date, status).\n\n' +
+      'You can also import a Tuan-Tuan style Excel checklist (.xlsx) directly via Import tasks — ' +
+      'sheets named “Additional Requests” and “Done by EPOS” are recognised automatically. ' +
+      'The Summary & Sign-off sheet is ignored.'
+    );
   }
 
   /** Parse CSV text; handles commas inside quoted fields and "" escapes. */
@@ -2226,7 +2235,11 @@
   }
 
   function normaliseHeader(h) {
-    return String(h || '').trim().toLowerCase().replace(/\s+/g, '_');
+    return String(h || '')
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
   }
 
   function isValidDueDate(v) {
@@ -2237,46 +2250,89 @@
     return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
   }
 
+  function isExcelImportFile(file) {
+    const name = String(file && file.name || '').toLowerCase();
+    const type = String(file && file.type || '').toLowerCase();
+    return (
+      name.endsWith('.xlsx') ||
+      name.endsWith('.xls') ||
+      type.includes('spreadsheetml') ||
+      type.includes('ms-excel') ||
+      type === 'application/vnd.ms-excel'
+    );
+  }
+
+  function sheetNameMatches(name, needle) {
+    return String(name || '').toLowerCase().includes(String(needle).toLowerCase());
+  }
+
+  function findSheet(workbook, needle) {
+    const names = workbook.SheetNames || [];
+    return names.find((n) => sheetNameMatches(n, needle)) || null;
+  }
+
+  function isTuanTuanChecklist(workbook) {
+    const names = workbook.SheetNames || [];
+    const hasAdditional = names.some((n) => sheetNameMatches(n, 'additional requests'));
+    const hasDone = names.some((n) => sheetNameMatches(n, 'done by epos'));
+    return hasAdditional || hasDone;
+  }
+
+  function mapChecklistStatus(raw) {
+    const s = String(raw || '').trim().toLowerCase();
+    if (!s) return 'pending';
+    if (s === 'done' || s === 'complete' || s === 'completed') return 'done';
+    if (s === 'pending' || s === 'open' || s === 'todo' || s === 'to do') return 'pending';
+    return null;
+  }
+
+  function sheetRowsToObjects(workbook, sheetName) {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) return [];
+    const matrix = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+    if (!matrix.length) return [];
+    const headers = matrix[0].map(normaliseHeader);
+    const objects = [];
+    for (let r = 1; r < matrix.length; r++) {
+      const cells = matrix[r] || [];
+      if (!cells.some((c) => String(c).trim() !== '')) continue;
+      const obj = { __line: r + 1 };
+      headers.forEach((h, i) => {
+        if (!h) return;
+        obj[h] = cells[i] == null ? '' : cells[i];
+      });
+      objects.push(obj);
+    }
+    return objects;
+  }
+
+  function nextLineupOrderStart() {
+    const open = openTasksSorted();
+    return open.reduce((m, t) => Math.max(m, t.lineupOrder ?? -1), -1) + 1;
+  }
+
   /**
-   * Import tasks from a CSV file into the currently selected project.
-   * Columns: title, notes, priority, due_date, status.
-   * Always uses the selected project (an optional project title column is ignored if present).
+   * Build task drafts from a simple CSV (title, notes, priority, due_date, status).
    */
-  async function importTasksFromFile(file, projectId) {
-    if (!projectId) {
-      alert('Select a project before importing tasks.');
-      return;
-    }
-    if (!getProject(projectId)) {
-      alert('Selected project not found.');
-      return;
-    }
-
-    let text;
-    try {
-      text = await file.text();
-    } catch (err) {
-      alert('Could not read the file: ' + (err.message || 'unknown error'));
-      return;
-    }
-
+  function draftsFromCsvText(text, projectId) {
     const rows = parseCsv(text);
     if (rows.length < 2) {
-      alert('CSV must include a header row and at least one data row.');
-      return;
+      return { error: 'CSV must include a header row and at least one data row.' };
     }
 
     const headers = rows[0].map(normaliseHeader);
     const missing = TASK_CSV_HEADERS.filter((h) => !headers.includes(h));
     if (missing.length) {
-      alert('CSV is missing required column(s): ' + missing.join(', ') + '. Download the template for the expected format.');
-      return;
+      return {
+        error:
+          'CSV is missing required column(s): ' +
+          missing.join(', ') +
+          '. Download the template for the expected format, or use a Tuan-Tuan style Excel checklist.',
+      };
     }
 
     const col = Object.fromEntries(TASK_CSV_HEADERS.map((h) => [h, headers.indexOf(h)]));
-    const open = openTasksSorted();
-    let nextOrder = open.reduce((m, t) => Math.max(m, t.lineupOrder ?? -1), -1) + 1;
-
+    let nextOrder = nextLineupOrderStart();
     const drafts = [];
     let skipped = 0;
     const errorMsgs = [];
@@ -2327,6 +2383,195 @@
       });
     }
 
+    return { drafts, skipped, errorMsgs, format: 'csv' };
+  }
+
+  /**
+   * Build task drafts from a Tuan-Tuan Greenhills POS checklist workbook.
+   * Additional Requests: Request→title, Notes/Details→notes, Status→done/pending;
+   * priority high when pending, otherwise low. Done by EPOS: Item→title.
+   * Summary & Sign-off is ignored.
+   */
+  function draftsFromTuanTuanWorkbook(workbook, projectId) {
+    let nextOrder = nextLineupOrderStart();
+    const drafts = [];
+    let skipped = 0;
+    const errorMsgs = [];
+
+    function pushRow(title, notes, statusRaw, sourceLabel, line) {
+      const titleTrim = String(title || '').trim();
+      if (!titleTrim) {
+        skipped++;
+        return;
+      }
+      const status = mapChecklistStatus(statusRaw);
+      if (!status) {
+        errorMsgs.push(
+          sourceLabel +
+            ' row ' +
+            line +
+            ' (“' +
+            titleTrim.slice(0, 40) +
+            '”): status must be Pending or Done'
+        );
+        return;
+      }
+      const priority = status === 'pending' ? 'high' : 'low';
+      const lineupOrder = status === 'pending' ? nextOrder++ : 0;
+      drafts.push({
+        projectId,
+        title: titleTrim.slice(0, 200),
+        notes: String(notes || '').trim().slice(0, 1000),
+        priority,
+        dueDate: '',
+        status,
+        lineupOrder,
+      });
+    }
+
+    const additionalName = findSheet(workbook, 'additional requests');
+    if (additionalName) {
+      const rows = sheetRowsToObjects(workbook, additionalName);
+      for (const row of rows) {
+        const title = row.request ?? row.item ?? '';
+        const notes = row.notes_details ?? row.notes ?? row.details ?? '';
+        const statusRaw = row.status ?? '';
+        pushRow(title, notes, statusRaw, 'Additional Requests', row.__line);
+      }
+    }
+
+    const doneName = findSheet(workbook, 'done by epos');
+    if (doneName) {
+      const rows = sheetRowsToObjects(workbook, doneName);
+      for (const row of rows) {
+        const title = row.item ?? row.request ?? '';
+        const notes = row.notes_details ?? row.notes ?? row.details ?? '';
+        const statusRaw = row.status ?? 'Done';
+        pushRow(title, notes, statusRaw, 'Done by EPOS', row.__line);
+      }
+    }
+
+    return {
+      drafts,
+      skipped,
+      errorMsgs,
+      format: 'tuan-tuan',
+      setClientIfEmpty: TUAN_TUAN_CLIENT,
+    };
+  }
+
+  async function ensureSheetJs() {
+    if (window.XLSX && window.XLSX.utils) return window.XLSX;
+    const sources = [
+      'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+      'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+    ];
+    for (const src of sources) {
+      try {
+        await new Promise((resolve, reject) => {
+          const existing = document.querySelector('script[data-xlsx-cdn="' + src + '"]');
+          if (existing) {
+            existing.addEventListener('load', () => resolve());
+            existing.addEventListener('error', () => reject(new Error('load failed')));
+            if (window.XLSX) resolve();
+            return;
+          }
+          const s = document.createElement('script');
+          s.src = src;
+          s.async = true;
+          s.dataset.xlsxCdn = src;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error('load failed'));
+          document.head.appendChild(s);
+        });
+        if (window.XLSX && window.XLSX.utils) return window.XLSX;
+      } catch {
+        /* try next CDN */
+      }
+    }
+    throw new Error('Could not load the Excel (.xlsx) library. Check your network connection.');
+  }
+
+  async function draftsFromExcelFile(file, projectId) {
+    await ensureSheetJs();
+    const buffer = await file.arrayBuffer();
+    const workbook = window.XLSX.read(buffer, { type: 'array' });
+
+    if (isTuanTuanChecklist(workbook)) {
+      return draftsFromTuanTuanWorkbook(workbook, projectId);
+    }
+
+    // Generic first-sheet → CSV-like columns (title, notes, priority, due_date, status)
+    const first = (workbook.SheetNames || [])[0];
+    if (!first) {
+      return { error: 'The workbook has no sheets to import.' };
+    }
+    const matrix = window.XLSX.utils.sheet_to_json(workbook.Sheets[first], {
+      header: 1,
+      defval: '',
+      raw: false,
+    });
+    if (!matrix.length) {
+      return { error: 'The first sheet is empty.' };
+    }
+    const csvText = matrix
+      .map((row) =>
+        row
+          .map((cell) => {
+            const v = String(cell ?? '');
+            if (/[",\n\r]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+            return v;
+          })
+          .join(',')
+      )
+      .join('\n');
+    const result = draftsFromCsvText(csvText, projectId);
+    if (result.error) {
+      return {
+        error:
+          'Unrecognised Excel format. Expected a Tuan-Tuan checklist ' +
+          '(sheets “Additional Requests” / “Done by EPOS”) or a sheet with columns ' +
+          TASK_CSV_HEADERS.join(', ') +
+          '.',
+      };
+    }
+    return result;
+  }
+
+  /**
+   * Import tasks from CSV or Excel into the currently selected project.
+   * Always uses the selected project; lineup_order is never null.
+   */
+  async function importTasksFromFile(file, projectId) {
+    if (!projectId) {
+      alert('Select a project before importing tasks.');
+      return;
+    }
+    const project = getProject(projectId);
+    if (!project) {
+      alert('Selected project not found.');
+      return;
+    }
+
+    let parsed;
+    try {
+      if (isExcelImportFile(file)) {
+        parsed = await draftsFromExcelFile(file, projectId);
+      } else {
+        const text = await file.text();
+        parsed = draftsFromCsvText(text, projectId);
+      }
+    } catch (err) {
+      alert('Could not read the file: ' + (err.message || 'unknown error'));
+      return;
+    }
+
+    if (parsed.error) {
+      alert(parsed.error);
+      return;
+    }
+
+    const { drafts, skipped, errorMsgs } = parsed;
     if (!drafts.length) {
       const parts = ['No tasks imported.'];
       if (skipped) parts.push('Skipped ' + skipped + ' row(s) with empty title.');
@@ -2344,11 +2589,32 @@
           .select();
         if (error) throw error;
         (inserted || []).forEach((row) => state.tasks.push(mapTaskFromDb(row)));
+
+        // Optional: set client on Tuan-Tuan imports when the project has no client yet
+        if (parsed.setClientIfEmpty && !(project.clientName || '').trim()) {
+          const prevClient = project.clientName;
+          project.clientName = parsed.setClientIfEmpty;
+          const { error: projErr } = await supabase
+            .from('projects')
+            .update(projectToDb(project))
+            .eq('id', projectId);
+          if (projErr) {
+            project.clientName = prevClient;
+            throw projErr;
+          }
+          parsed.clientWasSet = true;
+        }
       });
       render();
       const parts = [
         'Imported ' + drafts.length + ' task(s) into the selected project.',
       ];
+      if (parsed.format === 'tuan-tuan') {
+        parts.push('Recognised Tuan-Tuan Greenhills POS checklist format.');
+        if (parsed.clientWasSet) {
+          parts.push('Client set to “' + TUAN_TUAN_CLIENT + '” (was empty).');
+        }
+      }
       if (skipped) parts.push('Skipped ' + skipped + ' row(s) with empty title.');
       if (errorMsgs.length) {
         parts.push(errorMsgs.length + ' row(s) had errors and were not imported:');
@@ -2833,9 +3099,9 @@
           <button type="button" role="tab" data-filter="done" class="${taskFilter === 'done' ? 'active' : ''}" aria-selected="${taskFilter === 'done'}">Done (${stats.done})</button>
         </div>
         <div class="task-toolbar-actions">
-          <button type="button" class="btn btn-ghost" id="btn-download-template" title="Download a CSV template to fill in">Download template</button>
-          <button type="button" class="btn btn-ghost" id="btn-import-tasks" title="Import tasks from a CSV into this project">Import tasks</button>
-          <input type="file" id="import-tasks-file" accept=".csv,text/csv" hidden />
+          <button type="button" class="btn btn-ghost" id="btn-download-template" title="Download a CSV template, or note that Tuan-Tuan Excel checklists can be imported directly">Download template</button>
+          <button type="button" class="btn btn-ghost" id="btn-import-tasks" title="Import tasks from CSV or a Tuan-Tuan Excel checklist into this project">Import tasks</button>
+          <input type="file" id="import-tasks-file" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" hidden />
           <button type="button" class="btn btn-primary" id="btn-add-task">+ Add task</button>
         </div>
       </div>
