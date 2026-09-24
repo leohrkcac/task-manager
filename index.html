@@ -846,7 +846,52 @@
       gap: 0.5rem;
       align-items: center;
     }
+    .qa-attach-count {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.15rem;
+      margin-left: 0.35rem;
+      padding: 0.08rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.62rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: rgba(107, 115, 133, 0.18);
+      border: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .qa-h-attach {
+      margin-top: 0.45rem;
+    }
+    .qa-h-attach .attachments-list {
+      max-height: min(18vh, 160px);
+      margin-bottom: 0.4rem;
+    }
+    .qa-h-attach .attachments-toolbar {
+      margin-top: 0.25rem;
+    }
+    .qa-pending-list {
+      list-style: none;
+      margin: 0.4rem 0 0;
+      padding: 0;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .qa-pending-list li {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.25rem 0;
+    }
+    .qa-pending-list .qa-pending-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
     .attachments-missing {
+
       margin: 0.5rem 0 0;
       font-size: 0.72rem;
       color: #e8a838;
@@ -2115,6 +2160,19 @@
           <label for="qa-notes">Notes</label>
           <textarea id="qa-notes" rows="3" maxlength="4000" placeholder="What was tested, bugs found…"></textarea>
         </div>
+        <div class="form-group" id="qa-attach-form-group">
+          <span style="display:block;font-size:0.8rem;font-weight:600;color:var(--text-muted);margin-bottom:0.35rem">Attachments (optional)</span>
+          <p class="attachments-hint" style="margin-top:0">Images and documents uploaded with this check. Max 10 MB each. Same types as task attachments.</p>
+          <div class="attachments-toolbar" style="margin-top:0.25rem">
+            <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">
+              Add files
+              <input type="file" id="qa-pending-file-input" multiple accept=".png,.jpg,.jpeg,.gif,.webp,.pdf,.csv,.txt,.xlsx,.xls,.doc,.docx,image/png,image/jpeg,image/gif,image/webp,application/pdf,text/csv,text/plain" hidden />
+            </label>
+            <span id="qa-pending-status" class="field-hint" style="margin:0"></span>
+          </div>
+          <ul id="qa-pending-list" class="qa-pending-list" hidden></ul>
+          <p id="qa-attach-missing" class="attachments-missing" hidden>QA attachments need <code>schema-qa-attachments.sql</code> (and <code>schema-task-attachments.sql</code> for the storage bucket) in the Supabase SQL editor.</p>
+        </div>
         <div class="modal-actions" style="margin-top:0.25rem;padding-top:0">
           <button type="submit" class="btn btn-primary" id="qa-submit">Log check</button>
         </div>
@@ -2168,6 +2226,11 @@
   /** @type {{ id: string, taskId: string, projectId: string|null, uploadedBy: string|null, fileName: string, filePath: string, mimeType: string, sizeBytes: number|null, createdAt: string }[]} */
   let taskAttachments = [];
   let attachmentsSchemaMissing = false;
+  /** @type {{ id: string, qaCheckId: string, taskId: string, projectId: string|null, uploadedBy: string|null, fileName: string, filePath: string, mimeType: string, sizeBytes: number|null, createdAt: string }[]} */
+  let qaAttachments = [];
+  let qaAttachmentsSchemaMissing = false;
+  /** @type {File[]} */
+  let qaPendingFiles = [];
   const ATTACH_BUCKET = 'task-attachments';
   const ATTACH_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
   const ATTACH_ACCEPT = '.png,.jpg,.jpeg,.gif,.webp,.pdf,.csv,.txt,.xlsx,.xls,.doc,.docx,image/png,image/jpeg,image/gif,image/webp,application/pdf,text/csv,text/plain';
@@ -2840,6 +2903,7 @@
 
     await fetchTaskQaChecks();
     await fetchTaskAttachments();
+    await fetchQaAttachments();
 
     cacheWrite();
     setSync('connected', 'Connected');
@@ -3228,6 +3292,317 @@
     return '<span class="attach-badge" title="' + n + ' attachment' + (n === 1 ? '' : 's') + '">📎 ' + n + '</span>';
   }
 
+  function mapQaAttachmentFromDb(row) {
+    return {
+      id: row.id,
+      qaCheckId: row.qa_check_id,
+      taskId: row.task_id,
+      projectId: row.project_id || null,
+      uploadedBy: row.uploaded_by || null,
+      fileName: row.file_name || 'file',
+      filePath: row.file_path || '',
+      mimeType: row.mime_type || '',
+      sizeBytes: row.size_bytes == null ? null : Number(row.size_bytes),
+      createdAt: row.created_at,
+    };
+  }
+
+  function isQaAttachmentsSchemaError(err) {
+    const msg = (err && (err.message || err.error_description || String(err))) || '';
+    const code = err && err.code;
+    return code === '42P01' || code === 'PGRST205' || /qa_attachments|schema cache|does not exist|relation/i.test(msg);
+  }
+
+  async function fetchQaAttachments() {
+    try {
+      if (!supabase) {
+        qaAttachments = [];
+        return;
+      }
+      const { data, error } = await supabase
+        .from('qa_attachments')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      qaAttachments = (data || []).map(mapQaAttachmentFromDb);
+      qaAttachmentsSchemaMissing = false;
+      updateQaAttachMissingHint();
+    } catch (err) {
+      console.warn('fetch qa_attachments failed (run schema-qa-attachments.sql if missing):', err);
+      qaAttachments = [];
+      if (isQaAttachmentsSchemaError(err)) qaAttachmentsSchemaMissing = true;
+      updateQaAttachMissingHint();
+    }
+  }
+
+  function updateQaAttachMissingHint() {
+    const el = document.getElementById('qa-attach-missing');
+    if (el) el.hidden = !qaAttachmentsSchemaMissing;
+  }
+
+  function attachmentsForQaCheck(qaCheckId) {
+    return qaAttachments
+      .filter((a) => a.qaCheckId === qaCheckId)
+      .slice()
+      .sort((a, b) => {
+        const ta = new Date(a.createdAt).getTime();
+        const tb = new Date(b.createdAt).getTime();
+        return (Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta);
+      });
+  }
+
+  function qaAttachCountBadge(qaCheckId) {
+    const n = attachmentsForQaCheck(qaCheckId).length;
+    if (!n) return '';
+    return '<span class="qa-attach-count" title="' + n + ' attachment' + (n === 1 ? '' : 's') + '">📎 ' + n + '</span>';
+  }
+
+  function renderQaPendingList() {
+    const listEl = document.getElementById('qa-pending-list');
+    const statusEl = document.getElementById('qa-pending-status');
+    if (!listEl) return;
+    if (!qaPendingFiles.length) {
+      listEl.hidden = true;
+      listEl.innerHTML = '';
+      if (statusEl) statusEl.textContent = '';
+      return;
+    }
+    listEl.hidden = false;
+    listEl.innerHTML = qaPendingFiles.map((f, i) => {
+      const size = formatFileSize(f.size);
+      return '<li data-qa-pending-idx="' + i + '">'
+        + '<span class="qa-pending-name" title="' + escapeHtml(f.name || 'file') + '">' + escapeHtml(f.name || 'file') + (size ? ' · ' + escapeHtml(size) : '') + '</span>'
+        + '<button type="button" class="btn-icon danger" data-qa-pending-rm="' + i + '" title="Remove" aria-label="Remove pending file">✕</button>'
+        + '</li>';
+    }).join('');
+    if (statusEl) {
+      statusEl.textContent = qaPendingFiles.length + ' file' + (qaPendingFiles.length === 1 ? '' : 's') + ' ready to upload with this check.';
+    }
+  }
+
+  function clearQaPendingFiles() {
+    qaPendingFiles = [];
+    const input = document.getElementById('qa-pending-file-input');
+    if (input) input.value = '';
+    renderQaPendingList();
+  }
+
+  function addQaPendingFiles(fileList) {
+    const errors = [];
+    for (const file of Array.from(fileList || [])) {
+      const v = validateAttachFile(file);
+      if (v) { errors.push(v); continue; }
+      qaPendingFiles.push(file);
+    }
+    renderQaPendingList();
+    if (errors.length) {
+      setSync('error', errors[0]);
+      if (errors.length > 1) console.warn('QA pending file errors:', errors);
+    }
+  }
+
+  function renderQaAttachmentsListInto(wrapEl, qaCheckId) {
+    if (!wrapEl) return;
+    const list = attachmentsForQaCheck(qaCheckId);
+    if (!list.length) {
+      wrapEl.innerHTML = '<div class="attachments-empty" style="padding:0.45rem 0.55rem;font-size:0.72rem">No attachments on this check.</div>';
+      return;
+    }
+    wrapEl.innerHTML = '<ul class="attachments-list" role="list">' + list.map((a) => {
+      const size = formatFileSize(a.sizeBytes);
+      const when = formatAuditTime(a.createdAt);
+      const sub = [size, when].filter(Boolean).join(' · ');
+      const thumb = isImageAttachment(a)
+        ? '<img class="attach-thumb" data-qa-attach-thumb="' + escapeHtml(a.id) + '" alt="" width="40" height="40" />'
+        : '<span class="attach-thumb-ph" aria-hidden="true">📄</span>';
+      return '<li data-qa-attach-id="' + escapeHtml(a.id) + '">'
+        + thumb
+        + '<div class="attach-meta">'
+        + '<div class="attach-name"><a href="#" data-qa-attach-open="' + escapeHtml(a.id) + '" title="Open / download">' + escapeHtml(a.fileName) + '</a></div>'
+        + '<div class="attach-sub">' + escapeHtml(sub) + '</div>'
+        + '</div>'
+        + '<div class="attach-actions">'
+        + '<button type="button" class="btn-icon danger" data-qa-attach-del="' + escapeHtml(a.id) + '" title="Remove attachment" aria-label="Remove attachment">✕</button>'
+        + '</div>'
+        + '</li>';
+    }).join('') + '</ul>';
+
+    list.filter(isImageAttachment).forEach((a) => {
+      const img = wrapEl.querySelector('img[data-qa-attach-thumb="' + CSS.escape(a.id) + '"]');
+      if (!img) return;
+      createAttachmentSignedUrl(a.filePath, 600).then((url) => {
+        if (url && img.isConnected) img.src = url;
+      }).catch(() => { /* soft-fail preview */ });
+    });
+  }
+
+  function bindQaHistoryAttachments(taskId) {
+    const history = document.getElementById('qa-history');
+    if (!history) return;
+
+    history.querySelectorAll('.qa-h-attach[data-qa-check]').forEach((panel) => {
+      const qaId = panel.getAttribute('data-qa-check');
+      const wrap = panel.querySelector('.qa-h-attach-list');
+      renderQaAttachmentsListInto(wrap, qaId);
+    });
+
+    if (!history._qaAttachDelegated) {
+      history._qaAttachDelegated = true;
+      history.addEventListener('click', async (e) => {
+        const openBtn = e.target.closest('[data-qa-attach-open]');
+        if (openBtn) {
+          e.preventDefault();
+          const id = openBtn.getAttribute('data-qa-attach-open');
+          const att = qaAttachments.find((x) => x.id === id);
+          if (att) openAttachment(att);
+          return;
+        }
+        const delBtn = e.target.closest('[data-qa-attach-del]');
+        if (delBtn) {
+          e.preventDefault();
+          const id = delBtn.getAttribute('data-qa-attach-del');
+          await deleteQaAttachment(id);
+          return;
+        }
+      });
+      history.addEventListener('change', async (e) => {
+        const input = e.target.closest('input[data-qa-attach-upload]');
+        if (!input || input.type !== 'file') return;
+        const qaId = input.getAttribute('data-qa-attach-upload');
+        const files = Array.from(input.files || []);
+        input.value = '';
+        if (!files.length || !qaId) return;
+        const check = taskQaChecks.find((c) => c.id === qaId);
+        const tid = (check && check.taskId) || taskId || qaModalTaskId;
+        await uploadQaAttachments(tid, qaId, files);
+      });
+    }
+  }
+
+  async function uploadQaAttachments(taskId, qaCheckId, files) {
+    const t = state.tasks.find((x) => x.id === taskId);
+    if (!t || !supabase || !qaCheckId) return { uploaded: 0, errors: ['Missing task or QA check.'] };
+    const errors = [];
+    let uploaded = 0;
+    for (const file of files) {
+      const v = validateAttachFile(file);
+      if (v) { errors.push(v); continue; }
+      try {
+        setSync('syncing', 'Uploading QA file ' + (file.name || 'file') + '…');
+        const uuid = (crypto.randomUUID && crypto.randomUUID()) || (String(Date.now()) + '-' + Math.random().toString(16).slice(2));
+        const safeName = safeStorageFileName(file.name);
+        const objectPath = t.projectId + '/' + taskId + '/qa/' + qaCheckId + '/' + uuid + '-' + safeName;
+        const { error: upErr } = await supabase.storage
+          .from(ATTACH_BUCKET)
+          .upload(objectPath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type || undefined,
+          });
+        if (upErr) throw upErr;
+        const row = {
+          qa_check_id: qaCheckId,
+          task_id: taskId,
+          project_id: t.projectId || null,
+          uploaded_by: currentUserId(),
+          file_name: file.name || safeName,
+          file_path: objectPath,
+          mime_type: file.type || null,
+          size_bytes: file.size,
+        };
+        const { data: inserted, error: insErr } = await supabase
+          .from('qa_attachments')
+          .insert(row)
+          .select()
+          .maybeSingle();
+        if (insErr) {
+          try { await supabase.storage.from(ATTACH_BUCKET).remove([objectPath]); } catch { /* ignore */ }
+          throw insErr;
+        }
+        if (inserted) {
+          qaAttachments.unshift(mapQaAttachmentFromDb(inserted));
+        } else {
+          await fetchQaAttachments();
+        }
+        await writeAudit({
+          action: 'qa.attachment_add',
+          entityType: 'task',
+          entityId: taskId,
+          entityLabel: t.title,
+          details: {
+            fileName: file.name,
+            mimeType: file.type || null,
+            sizeBytes: file.size,
+            attachmentId: inserted && inserted.id,
+            qaCheckId,
+          },
+        });
+        uploaded += 1;
+      } catch (err) {
+        console.error('upload QA attachment failed:', err);
+        if (isQaAttachmentsSchemaError(err) || /bucket|not found|row-level security/i.test(err.message || '')) {
+          qaAttachmentsSchemaMissing = true;
+          updateQaAttachMissingHint();
+        }
+        errors.push((file.name || 'file') + ': ' + (err.message || 'upload failed'));
+      }
+    }
+    await fetchQaAttachments();
+    if (qaModalTaskId) {
+      renderQaHistory(qaModalTaskId);
+    }
+    if (errors.length) {
+      setSync('error', errors[0]);
+      if (errors.length > 1) console.warn('QA attachment upload errors:', errors);
+    } else if (uploaded) {
+      setSync('ok', 'QA attachment' + (uploaded === 1 ? '' : 's') + ' uploaded.');
+      setTimeout(() => setSync('connected', 'Connected'), 1200);
+    } else {
+      setSync('connected', 'Connected');
+    }
+    return { uploaded, errors };
+  }
+
+  async function deleteQaAttachment(attachmentId) {
+    const att = qaAttachments.find((x) => x.id === attachmentId);
+    if (!att) return;
+    const ok = await confirmAction({
+      title: 'Remove QA attachment',
+      message: 'Remove <strong>' + escapeHtml(att.fileName) + '</strong>? This deletes the file from storage.',
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
+    const t = state.tasks.find((x) => x.id === att.taskId);
+    try {
+      setSync('syncing', 'Removing QA attachment…');
+      if (att.filePath) {
+        const { error: rmErr } = await supabase.storage.from(ATTACH_BUCKET).remove([att.filePath]);
+        if (rmErr) console.warn('storage remove:', rmErr);
+      }
+      const { error } = await supabase.from('qa_attachments').delete().eq('id', attachmentId);
+      if (error) throw error;
+      qaAttachments = qaAttachments.filter((x) => x.id !== attachmentId);
+      await writeAudit({
+        action: 'qa.attachment_remove',
+        entityType: 'task',
+        entityId: att.taskId,
+        entityLabel: (t && t.title) || att.fileName,
+        details: { fileName: att.fileName, attachmentId, filePath: att.filePath, qaCheckId: att.qaCheckId },
+      });
+      if (qaModalTaskId) renderQaHistory(qaModalTaskId);
+      setSync('ok', 'QA attachment removed.');
+      setTimeout(() => setSync('connected', 'Connected'), 1200);
+    } catch (err) {
+      console.error(err);
+      if (isQaAttachmentsSchemaError(err)) {
+        qaAttachmentsSchemaMissing = true;
+        updateQaAttachMissingHint();
+      }
+      setSync('error', 'Could not remove QA attachment: ' + (err.message || 'error'));
+    }
+  }
+
   function qaForTask(taskId) {
     return taskQaChecks
       .filter((c) => c.taskId === taskId)
@@ -3292,6 +3667,9 @@
     const oldestFirst = list.slice().reverse();
     const attemptById = {};
     oldestFirst.forEach((c, i) => { attemptById[c.id] = c.attemptNo != null ? c.attemptNo : (i + 1); });
+    const missingHint = qaAttachmentsSchemaMissing
+      ? '<p class="attachments-missing" style="margin-top:0.5rem">QA attachments need <code>schema-qa-attachments.sql</code> (bucket from <code>schema-task-attachments.sql</code>).</p>'
+      : '';
     el.className = '';
     el.innerHTML = '<ul class="qa-history" role="list">' + list.map((c) => {
       const n = attemptById[c.id];
@@ -3301,25 +3679,41 @@
       const notes = c.notes
         ? '<div class="qa-h-notes">' + escapeHtml(c.notes) + '</div>'
         : '';
-      return '<li>'
-        + '<div class="qa-h-top"><span style="font-size:0.72rem;color:var(--text-dim)">Attempt ' + n + '</span> ' + badge + '</div>'
+      const countBadge = qaAttachCountBadge(c.id);
+      const attachPanel = '<div class="qa-h-attach" data-qa-check="' + escapeHtml(c.id) + '">'
+        + '<div class="qa-h-attach-list"></div>'
+        + '<div class="attachments-toolbar">'
+        + '<label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">'
+        + 'Add files'
+        + '<input type="file" multiple accept="' + ATTACH_ACCEPT + '" data-qa-attach-upload="' + escapeHtml(c.id) + '" hidden />'
+        + '</label>'
+        + '</div>'
+        + '</div>';
+      return '<li data-qa-history-id="' + escapeHtml(c.id) + '">'
+        + '<div class="qa-h-top"><span style="font-size:0.72rem;color:var(--text-dim)">Attempt ' + n + '</span> ' + badge + countBadge + '</div>'
         + '<div class="qa-h-meta">' + escapeHtml(c.testerName || c.testerEmail || 'Unknown') + ' · ' + escapeHtml(formatAuditTime(c.checkedAt)) + '</div>'
         + notes
+        + attachPanel
         + '</li>';
-    }).join('') + '</ul>';
+    }).join('') + '</ul>' + missingHint;
+    bindQaHistoryAttachments(taskId);
   }
 
   function openQaModal(taskId) {
     const t = state.tasks.find((x) => x.id === taskId);
     if (!t) return;
-    if (t.status !== 'done') {
+    const hasHistory = qaForTask(taskId).length > 0;
+    const canLog = t.status === 'done';
+    // Allow viewing history/attachments on Completed (or any status with past checks);
+    // new Pass/Fail logs remain Done-only.
+    if (!canLog && !hasHistory) {
       const label = TASK_STATUS_LABELS[t.status] || t.status;
       setSync('error', 'QA is only available when a task is Done (awaiting QA). Current status: ' + label + '.');
       return;
     }
     qaModalTaskId = taskId;
     const backdrop = document.getElementById('qa-backdrop');
-    document.getElementById('qa-title').textContent = 'Check & test — ' + (t.title || 'Untitled task');
+    document.getElementById('qa-title').textContent = (canLog ? 'Check & test — ' : 'QA history — ') + (t.title || 'Untitled task');
     document.getElementById('qa-task-id').value = taskId;
     const testerDisplay = (myFullName || '').trim();
     document.getElementById('qa-tester').value = testerDisplay
@@ -3332,9 +3726,20 @@
     document.getElementById('qa-notes').value = '';
     const radios = document.querySelectorAll('input[name="qa-result"]');
     radios.forEach((r) => { r.checked = false; });
+    clearQaPendingFiles();
+    updateQaAttachMissingHint();
+    const form = document.getElementById('qa-form');
+    if (form) form.style.display = canLog ? '' : 'none';
+    const hint = document.querySelector('#qa-modal > .qa-hint');
+    if (hint) {
+      hint.textContent = canLog
+        ? 'Retest after fixes until the task passes with no bugs.'
+        : 'View past checks and attachments. New checks are only logged when the task is Done.';
+    }
     renderQaHistory(taskId);
     backdrop.hidden = false;
     setTimeout(() => {
+      if (!canLog) return;
       const pass = document.querySelector('input[name="qa-result"][value="pass"]');
       if (pass) pass.focus();
     }, 30);
@@ -3343,6 +3748,11 @@
   function closeQaModal() {
     document.getElementById('qa-backdrop').hidden = true;
     qaModalTaskId = null;
+    clearQaPendingFiles();
+    const form = document.getElementById('qa-form');
+    if (form) form.style.display = '';
+    const hint = document.querySelector('#qa-modal > .qa-hint');
+    if (hint) hint.textContent = 'Retest after fixes until the task passes with no bugs.';
   }
 
   async function submitQaCheck(ev) {
@@ -3350,6 +3760,10 @@
     const taskId = document.getElementById('qa-task-id').value || qaModalTaskId;
     const t = state.tasks.find((x) => x.id === taskId);
     if (!t || !supabase) return;
+    if (t.status !== 'done') {
+      setSync('error', 'New QA checks can only be logged when the task is Done.');
+      return;
+    }
     const resultEl = document.querySelector('input[name="qa-result"]:checked');
     if (!resultEl) {
       setSync('error', 'Choose Pass or Fail');
@@ -3391,6 +3805,7 @@
     const submitBtn = document.getElementById('qa-submit');
     try {
       if (submitBtn) submitBtn.disabled = true;
+      let insertedQaId = null;
       await runSync('Logging check…', async () => {
         let { data, error } = await supabase.from('task_qa_checks').insert(row).select().maybeSingle();
         if (error && /tester_name|column|schema cache/i.test(error.message || '')) {
@@ -3403,8 +3818,11 @@
         if (error) throw error;
         if (data) {
           taskQaChecks.unshift(mapQaFromDb(data));
+          insertedQaId = data.id;
         } else {
           await fetchTaskQaChecks();
+          const latest = qaForTask(taskId)[0];
+          insertedQaId = latest && latest.id;
         }
         await writeAudit({
           action: 'task.qa_check',
@@ -3413,11 +3831,16 @@
           entityLabel: t.title,
           details: { result, attemptNo, notes: notes || null, checkedAt, testerName },
         });
+        const pending = qaPendingFiles.slice();
+        if (insertedQaId && pending.length) {
+          await uploadQaAttachments(taskId, insertedQaId, pending);
+        }
       });
       document.getElementById('qa-notes').value = '';
       document.querySelectorAll('input[name="qa-result"]').forEach((r) => { r.checked = false; });
       document.getElementById('qa-checked-at').value = toDatetimeLocalValue(new Date());
       setQaCheckedAtMax();
+      clearQaPendingFiles();
       renderQaHistory(taskId);
       render();
 
@@ -4577,6 +5000,29 @@
     if (e.target === document.getElementById('qa-backdrop')) closeQaModal();
   });
   document.getElementById('qa-form').addEventListener('submit', submitQaCheck);
+  (function bindQaPendingInput() {
+    const input = document.getElementById('qa-pending-file-input');
+    const listEl = document.getElementById('qa-pending-list');
+    if (input && !input._bound) {
+      input._bound = true;
+      input.addEventListener('change', () => {
+        addQaPendingFiles(input.files);
+        input.value = '';
+      });
+    }
+    if (listEl && !listEl._bound) {
+      listEl._bound = true;
+      listEl.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-qa-pending-rm]');
+        if (!btn) return;
+        e.preventDefault();
+        const idx = Number(btn.getAttribute('data-qa-pending-rm'));
+        if (!Number.isFinite(idx)) return;
+        qaPendingFiles.splice(idx, 1);
+        renderQaPendingList();
+      });
+    }
+  })();
   document.getElementById('qa-checked-at')?.addEventListener('change', setQaCheckedAtMax);
   document.getElementById('qa-checked-at')?.addEventListener('input', setQaCheckedAtMax);
 
@@ -6015,8 +6461,8 @@
           </div>
         </div>
         <div class="task-actions">
-          ${t.status === 'done'
-            ? `<button type="button" class="btn-icon" data-action="qa-task" data-id="${t.id}" title="Check &amp; test (QA)" aria-label="Check and test">📋</button>`
+          ${(t.status === 'done' || qaForTask(t.id).length > 0)
+            ? `<button type="button" class="btn-icon" data-action="qa-task" data-id="${t.id}" title="${t.status === 'done' ? 'Check &amp; test (QA)' : 'View QA history'}" aria-label="${t.status === 'done' ? 'Check and test' : 'View QA history'}">📋</button>`
             : `<button type="button" class="btn-icon qa-btn-disabled" disabled title="QA only when status is Done (awaiting QA)" aria-label="QA unavailable">📋</button>`}
           ${holdBtn}
           <button type="button" class="btn-icon" data-action="edit-task" data-id="${t.id}" title="Edit" aria-label="Edit task">✎</button>
