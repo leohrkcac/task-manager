@@ -730,6 +730,128 @@
       opacity: 0.35;
       cursor: not-allowed;
     }
+
+    /* ── Task attachments ── */
+    .attach-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      padding: 0.12rem 0.45rem;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      background: rgba(107, 115, 133, 0.18);
+      border: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .attachments-panel {
+      margin-top: 0.85rem;
+      padding-top: 0.85rem;
+      border-top: 1px solid var(--border);
+    }
+    .attachments-panel h4 {
+      margin: 0 0 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 650;
+      color: var(--text-muted);
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+    }
+    .attachments-hint {
+      margin: 0 0 0.55rem;
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      line-height: 1.35;
+    }
+    .attachments-list {
+      list-style: none;
+      margin: 0 0 0.65rem;
+      padding: 0;
+      max-height: min(28vh, 240px);
+      overflow-y: auto;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+    }
+    .attachments-list li {
+      display: flex;
+      gap: 0.65rem;
+      align-items: center;
+      padding: 0.55rem 0.65rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .attachments-list li:last-child { border-bottom: none; }
+    .attach-thumb {
+      width: 40px;
+      height: 40px;
+      object-fit: cover;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg-hover, rgba(255,255,255,0.04));
+      flex-shrink: 0;
+    }
+    .attach-thumb-ph {
+      width: 40px;
+      height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: rgba(107, 115, 133, 0.15);
+      color: var(--text-dim);
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .attach-meta {
+      flex: 1;
+      min-width: 0;
+      display: grid;
+      gap: 0.15rem;
+    }
+    .attach-name {
+      font-size: 0.82rem;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .attach-name a {
+      color: var(--accent, #7aa2ff);
+      text-decoration: none;
+    }
+    .attach-name a:hover { text-decoration: underline; }
+    .attach-sub {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+    .attach-actions {
+      display: flex;
+      gap: 0.25rem;
+      flex-shrink: 0;
+    }
+    .attachments-empty {
+      padding: 0.7rem 0.75rem;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      border: 1px dashed var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 0.65rem;
+      background: rgba(0,0,0,0.12);
+    }
+    .attachments-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+    .attachments-missing {
+      margin: 0.5rem 0 0;
+      font-size: 0.72rem;
+      color: #e8a838;
+      line-height: 1.35;
+    }
     .task-card.is-hold {
       border-color: rgba(224, 144, 16, 0.45);
       background: rgba(224, 144, 16, 0.06);
@@ -2043,6 +2165,14 @@
   /** @type {{ id: string, taskId: string, projectId: string|null, testerId: string|null, testerEmail: string, checkedAt: string, result: string, notes: string, attemptNo: number|null, createdAt: string }[]} */
   let taskQaChecks = [];
   let qaModalTaskId = null;
+  /** @type {{ id: string, taskId: string, projectId: string|null, uploadedBy: string|null, fileName: string, filePath: string, mimeType: string, sizeBytes: number|null, createdAt: string }[]} */
+  let taskAttachments = [];
+  let attachmentsSchemaMissing = false;
+  const ATTACH_BUCKET = 'task-attachments';
+  const ATTACH_MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+  const ATTACH_ACCEPT = '.png,.jpg,.jpeg,.gif,.webp,.pdf,.csv,.txt,.xlsx,.xls,.doc,.docx,image/png,image/jpeg,image/gif,image/webp,application/pdf,text/csv,text/plain';
+  const ATTACH_ALLOWED_EXT = new Set(['png','jpg','jpeg','gif','webp','pdf','csv','txt','xlsx','xls','doc','docx']);
+  const ATTACH_IMAGE_MIME = new Set(['image/png','image/jpeg','image/gif','image/webp']);
 
   function isSuperUser() {
     return userRole === 'super';
@@ -2709,6 +2839,7 @@
     }
 
     await fetchTaskQaChecks();
+    await fetchTaskAttachments();
 
     cacheWrite();
     setSync('connected', 'Connected');
@@ -2747,6 +2878,354 @@
       console.error('fetch task_qa_checks failed (run schema-task-qa.sql if missing):', err);
       taskQaChecks = [];
     }
+  }
+
+  function mapAttachmentFromDb(row) {
+    return {
+      id: row.id,
+      taskId: row.task_id,
+      projectId: row.project_id || null,
+      uploadedBy: row.uploaded_by || null,
+      fileName: row.file_name || 'file',
+      filePath: row.file_path || '',
+      mimeType: row.mime_type || '',
+      sizeBytes: row.size_bytes == null ? null : Number(row.size_bytes),
+      createdAt: row.created_at,
+    };
+  }
+
+  function isAttachmentsSchemaError(err) {
+    const msg = (err && (err.message || err.error_description || String(err))) || '';
+    const code = err && err.code;
+    return code === '42P01' || code === 'PGRST205' || /task_attachments|schema cache|does not exist|relation/i.test(msg);
+  }
+
+  async function fetchTaskAttachments() {
+    try {
+      if (!supabase) {
+        taskAttachments = [];
+        return;
+      }
+      const { data, error } = await supabase
+        .from('task_attachments')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      taskAttachments = (data || []).map(mapAttachmentFromDb);
+      attachmentsSchemaMissing = false;
+    } catch (err) {
+      console.warn('fetch task_attachments failed (run schema-task-attachments.sql if missing):', err);
+      taskAttachments = [];
+      if (isAttachmentsSchemaError(err)) attachmentsSchemaMissing = true;
+    }
+  }
+
+  function attachmentsForTask(taskId) {
+    return taskAttachments
+      .filter((a) => a.taskId === taskId)
+      .slice()
+      .sort((a, b) => {
+        const ta = new Date(a.createdAt).getTime();
+        const tb = new Date(b.createdAt).getTime();
+        return (Number.isNaN(tb) ? 0 : tb) - (Number.isNaN(ta) ? 0 : ta);
+      });
+  }
+
+  function formatFileSize(bytes) {
+    if (bytes == null || Number.isNaN(Number(bytes))) return '';
+    const n = Number(bytes);
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(n < 10 * 1024 ? 1 : 0) + ' KB';
+    return (n / (1024 * 1024)).toFixed(n < 10 * 1024 * 1024 ? 1 : 0) + ' MB';
+  }
+
+  function isImageAttachment(a) {
+    const mime = (a.mimeType || '').toLowerCase();
+    if (ATTACH_IMAGE_MIME.has(mime)) return true;
+    const name = (a.fileName || '').toLowerCase();
+    return /\.(png|jpe?g|gif|webp)$/.test(name);
+  }
+
+  function safeStorageFileName(name) {
+    const base = String(name || 'file').replace(/[/\\?%*:|"<>]/g, '_').trim() || 'file';
+    return base.slice(0, 180);
+  }
+
+  function attachFileExt(name) {
+    const m = String(name || '').toLowerCase().match(/\.([a-z0-9]+)$/);
+    return m ? m[1] : '';
+  }
+
+  function validateAttachFile(file) {
+    if (!file) return 'No file selected.';
+    if (file.size > ATTACH_MAX_BYTES) {
+      return '"' + (file.name || 'file') + '" is larger than 10 MB. Please choose a smaller file.';
+    }
+    const ext = attachFileExt(file.name);
+    const mime = (file.type || '').toLowerCase();
+    const okExt = ATTACH_ALLOWED_EXT.has(ext);
+    const okMime = !mime || ATTACH_IMAGE_MIME.has(mime)
+      || mime === 'application/pdf'
+      || mime === 'text/csv'
+      || mime === 'text/plain'
+      || mime === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      || mime === 'application/vnd.ms-excel'
+      || mime === 'application/msword'
+      || mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    if (!okExt && !okMime) {
+      return '"' + (file.name || 'file') + '" type is not allowed. Use images (png, jpg, gif, webp) or common documents (pdf, csv, txt, xlsx, doc, docx).';
+    }
+    return null;
+  }
+
+  async function createAttachmentSignedUrl(filePath, expiresIn) {
+    const { data, error } = await supabase.storage
+      .from(ATTACH_BUCKET)
+      .createSignedUrl(filePath, expiresIn || 3600);
+    if (error) throw error;
+    return data && data.signedUrl ? data.signedUrl : null;
+  }
+
+  async function openAttachment(att) {
+    try {
+      setSync('syncing', 'Opening attachment…');
+      const url = await createAttachmentSignedUrl(att.filePath, 3600);
+      if (!url) throw new Error('Could not create a signed URL');
+      window.open(url, '_blank', 'noopener,noreferrer');
+      setSync('connected', 'Connected');
+    } catch (err) {
+      console.error(err);
+      setSync('error', 'Could not open attachment: ' + (err.message || 'error'));
+    }
+  }
+
+  function attachmentsPanelHtml(taskId) {
+    const missing = attachmentsSchemaMissing
+      ? '<p class="attachments-missing">Attachments are not available yet. Run <code>schema-task-attachments.sql</code> in the Supabase SQL editor (creates the private bucket and table).</p>'
+      : '';
+    return `
+      <div class="attachments-panel" data-attach-task="${escapeHtml(taskId)}">
+        <h4>Attachments</h4>
+        <p class="attachments-hint">Images show a preview. Max 10 MB per file. Private storage — opened via signed URL.</p>
+        <div id="attachments-list-wrap"></div>
+        <div class="attachments-toolbar">
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">
+            Upload files
+            <input type="file" id="attach-file-input" multiple accept="${ATTACH_ACCEPT}" hidden />
+          </label>
+          <span id="attach-status" class="field-hint" style="margin:0"></span>
+        </div>
+        ${missing}
+      </div>
+    `;
+  }
+
+  function renderAttachmentsListInto(wrapEl, taskId) {
+    if (!wrapEl) return;
+    const list = attachmentsForTask(taskId);
+    if (!list.length) {
+      wrapEl.innerHTML = '<div class="attachments-empty">No attachments yet.</div>';
+      return;
+    }
+    wrapEl.innerHTML = '<ul class="attachments-list" role="list">' + list.map((a) => {
+      const size = formatFileSize(a.sizeBytes);
+      const when = formatAuditTime(a.createdAt);
+      const sub = [size, when].filter(Boolean).join(' · ');
+      const thumb = isImageAttachment(a)
+        ? `<img class="attach-thumb" data-attach-thumb="${escapeHtml(a.id)}" alt="" width="40" height="40" />`
+        : `<span class="attach-thumb-ph" aria-hidden="true">📄</span>`;
+      return `<li data-attach-id="${escapeHtml(a.id)}">
+        ${thumb}
+        <div class="attach-meta">
+          <div class="attach-name"><a href="#" data-attach-open="${escapeHtml(a.id)}" title="Open / download">${escapeHtml(a.fileName)}</a></div>
+          <div class="attach-sub">${escapeHtml(sub)}</div>
+        </div>
+        <div class="attach-actions">
+          <button type="button" class="btn-icon danger" data-attach-del="${escapeHtml(a.id)}" title="Remove attachment" aria-label="Remove attachment">✕</button>
+        </div>
+      </li>`;
+    }).join('') + '</ul>';
+
+    // Load signed URLs for image thumbs (async)
+    list.filter(isImageAttachment).forEach((a) => {
+      const img = wrapEl.querySelector('img[data-attach-thumb="' + CSS.escape(a.id) + '"]');
+      if (!img) return;
+      createAttachmentSignedUrl(a.filePath, 600).then((url) => {
+        if (url && img.isConnected) img.src = url;
+      }).catch(() => { /* soft-fail preview */ });
+    });
+  }
+
+  function bindAttachmentsPanel(taskId) {
+    const panel = document.querySelector('.attachments-panel[data-attach-task="' + CSS.escape(taskId) + '"]');
+    if (!panel) return;
+    const wrap = panel.querySelector('#attachments-list-wrap');
+    renderAttachmentsListInto(wrap, taskId);
+
+    const input = panel.querySelector('#attach-file-input');
+    if (input && !input._bound) {
+      input._bound = true;
+      input.addEventListener('change', () => {
+        const files = Array.from(input.files || []);
+        input.value = '';
+        if (files.length) uploadTaskAttachments(taskId, files);
+      });
+    }
+
+    if (!panel._delegated) {
+      panel._delegated = true;
+      panel.addEventListener('click', async (e) => {
+        const openBtn = e.target.closest('[data-attach-open]');
+        if (openBtn) {
+          e.preventDefault();
+          const id = openBtn.getAttribute('data-attach-open');
+          const att = taskAttachments.find((x) => x.id === id);
+          if (att) openAttachment(att);
+          return;
+        }
+        const delBtn = e.target.closest('[data-attach-del]');
+        if (delBtn) {
+          e.preventDefault();
+          const id = delBtn.getAttribute('data-attach-del');
+          await deleteTaskAttachment(id, taskId);
+        }
+      });
+    }
+  }
+
+  async function uploadTaskAttachments(taskId, files) {
+    const t = state.tasks.find((x) => x.id === taskId);
+    if (!t || !supabase) return;
+    const statusEl = document.getElementById('attach-status');
+    const errors = [];
+    let uploaded = 0;
+    for (const file of files) {
+      const v = validateAttachFile(file);
+      if (v) { errors.push(v); continue; }
+      try {
+        setSync('syncing', 'Uploading ' + (file.name || 'file') + '…');
+        if (statusEl) statusEl.textContent = 'Uploading ' + (file.name || 'file') + '…';
+        const uuid = (crypto.randomUUID && crypto.randomUUID()) || (String(Date.now()) + '-' + Math.random().toString(16).slice(2));
+        const safeName = safeStorageFileName(file.name);
+        const objectPath = t.projectId + '/' + taskId + '/' + uuid + '-' + safeName;
+        const { error: upErr } = await supabase.storage
+          .from(ATTACH_BUCKET)
+          .upload(objectPath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type || undefined,
+          });
+        if (upErr) throw upErr;
+        const row = {
+          task_id: taskId,
+          project_id: t.projectId || null,
+          uploaded_by: currentUserId(),
+          file_name: file.name || safeName,
+          file_path: objectPath,
+          mime_type: file.type || null,
+          size_bytes: file.size,
+        };
+        const { data: inserted, error: insErr } = await supabase
+          .from('task_attachments')
+          .insert(row)
+          .select()
+          .maybeSingle();
+        if (insErr) {
+          // Best-effort cleanup of orphaned storage object
+          try { await supabase.storage.from(ATTACH_BUCKET).remove([objectPath]); } catch { /* ignore */ }
+          throw insErr;
+        }
+        if (inserted) {
+          taskAttachments.unshift(mapAttachmentFromDb(inserted));
+        } else {
+          await fetchTaskAttachments();
+        }
+        await writeAudit({
+          action: 'task.attachment_add',
+          entityType: 'task',
+          entityId: taskId,
+          entityLabel: t.title,
+          details: {
+            fileName: file.name,
+            mimeType: file.type || null,
+            sizeBytes: file.size,
+            attachmentId: inserted && inserted.id,
+          },
+        });
+        uploaded += 1;
+      } catch (err) {
+        console.error('upload attachment failed:', err);
+        if (isAttachmentsSchemaError(err) || /bucket|not found|row-level security/i.test(err.message || '')) {
+          attachmentsSchemaMissing = true;
+        }
+        errors.push((file.name || 'file') + ': ' + (err.message || 'upload failed'));
+      }
+    }
+    await fetchTaskAttachments();
+    bindAttachmentsPanel(taskId);
+    render(); // refresh card paperclip counts
+    // Re-open panel list (render() may have closed modal — keep modal as-is)
+    const wrap = document.getElementById('attachments-list-wrap');
+    if (wrap) renderAttachmentsListInto(wrap, taskId);
+    if (statusEl) {
+      statusEl.textContent = uploaded
+        ? ('Uploaded ' + uploaded + ' file' + (uploaded === 1 ? '' : 's') + '.')
+        : '';
+    }
+    if (errors.length) {
+      setSync('error', errors[0]);
+      if (errors.length > 1) console.warn('Attachment upload errors:', errors);
+    } else if (uploaded) {
+      setSync('ok', 'Attachment' + (uploaded === 1 ? '' : 's') + ' uploaded.');
+      setTimeout(() => setSync('connected', 'Connected'), 1200);
+    } else {
+      setSync('connected', 'Connected');
+    }
+  }
+
+  async function deleteTaskAttachment(attachmentId, taskId) {
+    const att = taskAttachments.find((x) => x.id === attachmentId);
+    if (!att) return;
+    const ok = await confirmAction({
+      title: 'Remove attachment',
+      message: 'Remove <strong>' + escapeHtml(att.fileName) + '</strong>? This deletes the file from storage.',
+      confirmLabel: 'Remove',
+      danger: true,
+    });
+    if (!ok) return;
+    const t = state.tasks.find((x) => x.id === (taskId || att.taskId));
+    try {
+      setSync('syncing', 'Removing attachment…');
+      if (att.filePath) {
+        const { error: rmErr } = await supabase.storage.from(ATTACH_BUCKET).remove([att.filePath]);
+        if (rmErr) console.warn('storage remove:', rmErr);
+      }
+      const { error } = await supabase.from('task_attachments').delete().eq('id', attachmentId);
+      if (error) throw error;
+      taskAttachments = taskAttachments.filter((x) => x.id !== attachmentId);
+      await writeAudit({
+        action: 'task.attachment_remove',
+        entityType: 'task',
+        entityId: att.taskId,
+        entityLabel: (t && t.title) || att.fileName,
+        details: { fileName: att.fileName, attachmentId, filePath: att.filePath },
+      });
+      bindAttachmentsPanel(att.taskId);
+      render();
+      const wrap = document.getElementById('attachments-list-wrap');
+      if (wrap) renderAttachmentsListInto(wrap, att.taskId);
+      setSync('ok', 'Attachment removed.');
+      setTimeout(() => setSync('connected', 'Connected'), 1200);
+    } catch (err) {
+      console.error(err);
+      setSync('error', 'Could not remove attachment: ' + (err.message || 'error'));
+    }
+  }
+
+  function attachBadgeHtml(taskId) {
+    const n = attachmentsForTask(taskId).length;
+    if (!n) return '';
+    return '<span class="attach-badge" title="' + n + ' attachment' + (n === 1 ? '' : 's') + '">📎 ' + n + '</span>';
   }
 
   function qaForTask(taskId) {
@@ -3223,6 +3702,8 @@
     'task.status': 'Changed task status',
     'task.hold': 'Put task on hold',
     'task.qa_check': 'Logged QA check',
+    'task.attachment_add': 'Added task attachment',
+    'task.attachment_remove': 'Removed task attachment',
     'tasks.import': 'Imported tasks',
     'group.create': 'Created group',
     'group.rename': 'Renamed group',
@@ -4894,6 +5375,8 @@
     openModal({
       title: 'Edit task',
       fields: taskFields(t),
+      wide: true,
+      afterOpen() { bindAttachmentsPanel(t.id); },
       onSubmit(data) {
         const prev = { ...t };
         const wasPending = t.status === 'pending';
@@ -5071,16 +5554,22 @@
         </select>
         ${t.status === 'completed' ? '<p class="field-hint">This task is <strong>Completed</strong> (QA passed). Saving with Done moves it back to awaiting QA. Completed is only set by a passing QA check.</p>' : '<p class="field-hint">Completed is set only when QA passes — not from this menu.</p>'}
       </div>
+      ${t.id ? attachmentsPanelHtml(t.id) : ''}
     `;
   }
 
   // ── Modal ──
   let modalHandler = null;
 
-  function openModal({ title, fields, onSubmit }) {
+  function openModal({ title, fields, onSubmit, afterOpen, wide }) {
     const backdrop = document.getElementById('modal-backdrop');
     const form = document.getElementById('modal-form');
+    const modalEl = document.getElementById('modal');
     document.getElementById('modal-title').textContent = title;
+    if (modalEl) {
+      if (wide) modalEl.classList.add('modal-wide');
+      else modalEl.classList.remove('modal-wide');
+    }
     form.innerHTML = fields + `
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" id="modal-cancel">Cancel</button>
@@ -5094,6 +5583,8 @@
       e.preventDefault();
       const fd = new FormData(form);
       const data = Object.fromEntries(fd.entries());
+      // File inputs without a name are ignored; strip accidental attach fields
+      delete data[''];
       let ok = true;
       if (modalHandler) {
         const result = modalHandler(data);
@@ -5103,7 +5594,10 @@
     };
     backdrop.onclick = (e) => { if (e.target === backdrop) closeModal(); };
     setTimeout(() => {
-      const first = form.querySelector('input, select, textarea');
+      if (typeof afterOpen === 'function') {
+        try { afterOpen(); } catch (err) { console.error(err); }
+      }
+      const first = form.querySelector('input:not([type="file"]), select, textarea');
       if (first) first.focus();
     }, 30);
   }
@@ -5516,6 +6010,7 @@
             <span class="priority-badge ${t.priority}">${t.priority}</span>
             ${statusBadge}
             ${qaBadge}
+            ${attachBadgeHtml(t.id)}
             ${due}
           </div>
         </div>
