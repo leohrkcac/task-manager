@@ -830,6 +830,101 @@
       display: flex;
       gap: 0.25rem;
       flex-shrink: 0;
+      align-items: center;
+    }
+    .attach-thumb,
+    .attach-thumb-ph {
+      cursor: pointer;
+    }
+    .attach-thumb:hover,
+    .attach-thumb-ph:hover {
+      outline: 2px solid var(--accent, #7aa2ff);
+      outline-offset: 1px;
+    }
+    .btn-attach-view {
+      padding: 0.22rem 0.5rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: rgba(122, 162, 255, 0.12);
+      color: var(--accent, #7aa2ff);
+      cursor: pointer;
+      line-height: 1.2;
+    }
+    .btn-attach-view:hover {
+      background: rgba(122, 162, 255, 0.22);
+    }
+    .attach-lightbox-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.82);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 220;
+      backdrop-filter: blur(6px);
+    }
+    .attach-lightbox-backdrop[hidden] { display: none; }
+    .attach-lightbox {
+      position: relative;
+      max-width: min(96vw, 1100px);
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      background: var(--bg-elevated, #1a1d24);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.85rem 1rem 1rem;
+      box-shadow: var(--shadow);
+    }
+    .attach-lightbox-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      min-width: 0;
+    }
+    .attach-lightbox-title {
+      flex: 1;
+      min-width: 0;
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .attach-lightbox-actions {
+      display: flex;
+      gap: 0.4rem;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    .attach-lightbox-body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 120px;
+      max-height: calc(92vh - 4.5rem);
+      overflow: auto;
+    }
+    .attach-lightbox-body img {
+      max-width: 100%;
+      max-height: calc(92vh - 5rem);
+      object-fit: contain;
+      border-radius: 6px;
+      background: rgba(0,0,0,0.25);
+    }
+    .attach-lightbox-status {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-align: center;
+      padding: 1.5rem 1rem;
+    }
+    .attach-lightbox-status.is-error {
+      color: #e8a838;
     }
     .attachments-empty {
       padding: 0.7rem 0.75rem;
@@ -2039,6 +2134,22 @@
     </div>
   </div>
 
+  <!-- Attachment image lightbox -->
+  <div class="attach-lightbox-backdrop" id="attach-lightbox-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="attach-lightbox-title">
+    <div class="attach-lightbox" id="attach-lightbox">
+      <div class="attach-lightbox-header">
+        <div class="attach-lightbox-title" id="attach-lightbox-title">Attachment</div>
+        <div class="attach-lightbox-actions">
+          <a class="btn btn-ghost btn-sm" id="attach-lightbox-open-tab" href="#" target="_blank" rel="noopener noreferrer" hidden>Open in tab</a>
+          <button type="button" class="btn btn-primary btn-sm" id="attach-lightbox-close" aria-label="Close preview">Close</button>
+        </div>
+      </div>
+      <div class="attach-lightbox-body" id="attach-lightbox-body">
+        <div class="attach-lightbox-status" id="attach-lightbox-status">Loading…</div>
+      </div>
+    </div>
+  </div>
+
   <!-- Profile editor -->
   <div class="modal-backdrop" id="profile-backdrop" hidden role="dialog" aria-modal="true" aria-labelledby="profile-title">
     <div class="modal" id="profile-modal">
@@ -3050,18 +3161,103 @@
     return data && data.signedUrl ? data.signedUrl : null;
   }
 
-  async function openAttachment(att) {
+  function closeAttachmentLightbox() {
+    const backdrop = document.getElementById('attach-lightbox-backdrop');
+    if (!backdrop || backdrop.hidden) return;
+    backdrop.hidden = true;
+    const body = document.getElementById('attach-lightbox-body');
+    if (body) body.innerHTML = '<div class="attach-lightbox-status" id="attach-lightbox-status">Loading…</div>';
+    const tab = document.getElementById('attach-lightbox-open-tab');
+    if (tab) {
+      tab.hidden = true;
+      tab.removeAttribute('href');
+    }
+    const title = document.getElementById('attach-lightbox-title');
+    if (title) title.textContent = 'Attachment';
+  }
+
+  async function openAttachmentLightbox(att) {
+    const backdrop = document.getElementById('attach-lightbox-backdrop');
+    const body = document.getElementById('attach-lightbox-body');
+    const title = document.getElementById('attach-lightbox-title');
+    const tab = document.getElementById('attach-lightbox-open-tab');
+    if (!backdrop || !body) {
+      // Fallback if markup missing
+      return openAttachmentInNewTab(att);
+    }
+    if (title) title.textContent = att.fileName || 'Attachment';
+    if (tab) {
+      tab.hidden = true;
+      tab.removeAttribute('href');
+    }
+    body.innerHTML = '<div class="attach-lightbox-status" id="attach-lightbox-status">Loading preview…</div>';
+    backdrop.hidden = false;
     try {
       setSync('syncing', 'Opening attachment…');
       const url = await createAttachmentSignedUrl(att.filePath, 3600);
       if (!url) throw new Error('Could not create a signed URL');
-      window.open(url, '_blank', 'noopener,noreferrer');
+      if (backdrop.hidden) return; // closed while loading
+      const img = document.createElement('img');
+      img.alt = att.fileName || 'Attachment preview';
+      img.src = url;
+      img.addEventListener('error', () => {
+        body.innerHTML = '<div class="attach-lightbox-status is-error">Could not load image preview. Try Open in tab.</div>';
+      });
+      body.innerHTML = '';
+      body.appendChild(img);
+      if (tab) {
+        tab.href = url;
+        tab.hidden = false;
+      }
+      setSync('connected', 'Connected');
+    } catch (err) {
+      console.error(err);
+      const msg = err && err.message ? err.message : 'error';
+      body.innerHTML = '<div class="attach-lightbox-status is-error">Could not open attachment: ' + escapeHtml(msg) + '</div>';
+      setSync('error', 'Could not open attachment: ' + msg);
+    }
+  }
+
+  async function openAttachmentInNewTab(att) {
+    try {
+      setSync('syncing', 'Opening attachment…');
+      const url = await createAttachmentSignedUrl(att.filePath, 3600);
+      if (!url) throw new Error('Could not create a signed URL');
+      const w = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!w) {
+        setSync('error', 'Popup blocked — allow popups to open attachments, or try again.');
+        return;
+      }
       setSync('connected', 'Connected');
     } catch (err) {
       console.error(err);
       setSync('error', 'Could not open attachment: ' + (err.message || 'error'));
     }
   }
+
+  async function openAttachment(att) {
+    if (!att || !att.filePath) {
+      setSync('error', 'Could not open attachment: missing file path');
+      return;
+    }
+    if (isImageAttachment(att)) {
+      await openAttachmentLightbox(att);
+    } else {
+      await openAttachmentInNewTab(att);
+    }
+  }
+
+  function bindAttachmentLightboxOnce() {
+    const backdrop = document.getElementById('attach-lightbox-backdrop');
+    if (!backdrop || backdrop._bound) return;
+    backdrop._bound = true;
+    const closeBtn = document.getElementById('attach-lightbox-close');
+    if (closeBtn) closeBtn.addEventListener('click', (e) => { e.preventDefault(); closeAttachmentLightbox(); });
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) closeAttachmentLightbox();
+    });
+  }
+  bindAttachmentLightboxOnce();
 
   function attachmentsPanelHtml(taskId) {
     const missing = attachmentsSchemaMissing
@@ -3070,7 +3266,7 @@
     return `
       <div class="attachments-panel" data-attach-task="${escapeHtml(taskId)}">
         <h4>Attachments</h4>
-        <p class="attachments-hint">Images show a preview. Max 10 MB per file. Private storage — opened via signed URL.</p>
+        <p class="attachments-hint">Click an image for full preview, or <strong>View</strong> to open any file. Max 10 MB. Private storage — fresh signed URL on each open.</p>
         <div id="attachments-list-wrap"></div>
         <div class="attachments-toolbar">
           <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0">
@@ -3096,15 +3292,16 @@
       const when = formatAuditTime(a.createdAt);
       const sub = [size, when].filter(Boolean).join(' · ');
       const thumb = isImageAttachment(a)
-        ? `<img class="attach-thumb" data-attach-thumb="${escapeHtml(a.id)}" alt="" width="40" height="40" />`
-        : `<span class="attach-thumb-ph" aria-hidden="true">📄</span>`;
+        ? `<img class="attach-thumb" data-attach-thumb="${escapeHtml(a.id)}" data-attach-open="${escapeHtml(a.id)}" alt="${escapeHtml(a.fileName)}" width="40" height="40" title="View image" role="button" tabindex="0" />`
+        : `<span class="attach-thumb-ph" data-attach-open="${escapeHtml(a.id)}" title="Open file" role="button" tabindex="0" aria-label="Open ${escapeHtml(a.fileName)}">📄</span>`;
       return `<li data-attach-id="${escapeHtml(a.id)}">
         ${thumb}
         <div class="attach-meta">
-          <div class="attach-name"><a href="#" data-attach-open="${escapeHtml(a.id)}" title="Open / download">${escapeHtml(a.fileName)}</a></div>
+          <div class="attach-name"><a href="#" data-attach-open="${escapeHtml(a.id)}" title="View / open">${escapeHtml(a.fileName)}</a></div>
           <div class="attach-sub">${escapeHtml(sub)}</div>
         </div>
         <div class="attach-actions">
+          <button type="button" class="btn-attach-view" data-attach-open="${escapeHtml(a.id)}" title="View / open">View</button>
           <button type="button" class="btn-icon danger" data-attach-del="${escapeHtml(a.id)}" title="Remove attachment" aria-label="Remove attachment">✕</button>
         </div>
       </li>`;
@@ -3153,6 +3350,15 @@
           const id = delBtn.getAttribute('data-attach-del');
           await deleteTaskAttachment(id, taskId);
         }
+      });
+      panel.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const openEl = e.target.closest('[data-attach-open]');
+        if (!openEl || openEl.tagName === 'A' || openEl.tagName === 'BUTTON') return;
+        e.preventDefault();
+        const id = openEl.getAttribute('data-attach-open');
+        const att = taskAttachments.find((x) => x.id === id);
+        if (att) openAttachment(att);
       });
     }
   }
@@ -3413,15 +3619,16 @@
       const when = formatAuditTime(a.createdAt);
       const sub = [size, when].filter(Boolean).join(' · ');
       const thumb = isImageAttachment(a)
-        ? '<img class="attach-thumb" data-qa-attach-thumb="' + escapeHtml(a.id) + '" alt="" width="40" height="40" />'
-        : '<span class="attach-thumb-ph" aria-hidden="true">📄</span>';
+        ? '<img class="attach-thumb" data-qa-attach-thumb="' + escapeHtml(a.id) + '" data-qa-attach-open="' + escapeHtml(a.id) + '" alt="' + escapeHtml(a.fileName) + '" width="40" height="40" title="View image" role="button" tabindex="0" />'
+        : '<span class="attach-thumb-ph" data-qa-attach-open="' + escapeHtml(a.id) + '" title="Open file" role="button" tabindex="0" aria-label="Open ' + escapeHtml(a.fileName) + '">📄</span>';
       return '<li data-qa-attach-id="' + escapeHtml(a.id) + '">'
         + thumb
         + '<div class="attach-meta">'
-        + '<div class="attach-name"><a href="#" data-qa-attach-open="' + escapeHtml(a.id) + '" title="Open / download">' + escapeHtml(a.fileName) + '</a></div>'
+        + '<div class="attach-name"><a href="#" data-qa-attach-open="' + escapeHtml(a.id) + '" title="View / open">' + escapeHtml(a.fileName) + '</a></div>'
         + '<div class="attach-sub">' + escapeHtml(sub) + '</div>'
         + '</div>'
         + '<div class="attach-actions">'
+        + '<button type="button" class="btn-attach-view" data-qa-attach-open="' + escapeHtml(a.id) + '" title="View / open">View</button>'
         + '<button type="button" class="btn-icon danger" data-qa-attach-del="' + escapeHtml(a.id) + '" title="Remove attachment" aria-label="Remove attachment">✕</button>'
         + '</div>'
         + '</li>';
@@ -3464,6 +3671,15 @@
           await deleteQaAttachment(id);
           return;
         }
+      });
+      history.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return;
+        const openEl = e.target.closest('[data-qa-attach-open]');
+        if (!openEl || openEl.tagName === 'A' || openEl.tagName === 'BUTTON') return;
+        e.preventDefault();
+        const id = openEl.getAttribute('data-qa-attach-open');
+        const att = qaAttachments.find((x) => x.id === id);
+        if (att) openAttachment(att);
       });
       history.addEventListener('change', async (e) => {
         const input = e.target.closest('input[data-qa-attach-upload]');
@@ -6055,6 +6271,11 @@
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    const lb = document.getElementById('attach-lightbox-backdrop');
+    if (lb && !lb.hidden) {
+      closeAttachmentLightbox();
+      return;
+    }
     if (!document.getElementById('confirm-backdrop').hidden) {
       closeConfirm(false);
       return;
