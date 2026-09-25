@@ -6422,8 +6422,15 @@
   function projectStatusStats(projects) {
     const list = projects || [];
     const total = list.length;
-    const done = list.filter((p) => p.status === 'done').length;
-    const pending = list.filter((p) => p.status !== 'done').length;
+    // A project counts as Done when its status is Done, or when all of its tasks
+    // are finished (same 100% shown on the project card; On Hold excluded).
+    const isDone = (p) => {
+      if (p.status === 'done') return true;
+      const ts = taskStats(projectTasks(p.id));
+      return ts.total > 0 && ts.pending === 0;
+    };
+    const done = list.filter(isDone).length;
+    const pending = total - done;
     const pctDone = total === 0 ? 0 : Math.round((done / total) * 100);
     const pctPending = total === 0 ? 0 : (100 - pctDone);
     return { total, done, pending, pctDone, pctPending };
