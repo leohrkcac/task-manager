@@ -1043,6 +1043,39 @@
       margin-top: 0.45rem;
     }
 
+    /* Who created / last updated (full names only, never email) */
+    .who-line {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.15rem 0.6rem;
+      margin-top: 0.3rem;
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      line-height: 1.35;
+    }
+    .who-line .who-name { color: var(--text-muted); font-weight: 550; }
+    .project-item .meta.meta-by {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .project-item .meta.meta-by .who-name { color: var(--text-muted); font-weight: 550; }
+    .who-box {
+      margin: 0 0 0.85rem;
+      padding: 0.5rem 0.65rem;
+      border: 1px solid var(--border, rgba(255,255,255,0.08));
+      border-radius: 8px;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      display: grid;
+      gap: 0.2rem;
+    }
+    .who-box .who-name { color: var(--text); font-weight: 550; }
+    .who-missing { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.4rem; }
+    .attach-sub .who-name,
+    .qa-history .qa-h-meta .who-name { color: var(--text-muted); font-weight: 550; }
+
     .due-date {
       font-size: 0.75rem;
       color: var(--text-dim);
@@ -2320,6 +2353,8 @@
   /** @type {{ full_name: string, gender: string, birthday: string }|null} */
   let pendingProfileDetails = null;
   let myFullName = '';
+  /** true when projects/tasks lack created_by_name (schema-user-tracking.sql not run) */
+  let userTrackingMissing = false;
   let appBooted = false;
   let authListenerReady = false;
   let userRole = 'member'; // 'super' | 'member'
@@ -2775,6 +2810,10 @@
       groupId: row.group_id || null,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      createdBy: row.created_by || row.user_id || null,
+      createdByName: cleanName(row.created_by_name),
+      updatedBy: row.updated_by || null,
+      updatedByName: cleanName(row.updated_by_name),
     };
   }
 
@@ -2790,7 +2829,82 @@
       lineupOrder: row.lineup_order == null ? null : row.lineup_order,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
+      createdBy: row.created_by || row.user_id || null,
+      createdByName: cleanName(row.created_by_name),
+      updatedBy: row.updated_by || null,
+      updatedByName: cleanName(row.updated_by_name),
     };
+  }
+
+  // ── Who created / updated / attached / QA'd (full names only, never email) ──
+  function cleanName(v) {
+    const n = String(v ?? '').trim();
+    // Never surface an email address as a person's name
+    if (!n || /^[^\s@]+@[^\s@]+$/.test(n)) return '';
+    return n;
+  }
+
+  /** Full name for a user id: stored snapshot, else my own profile name if it's me. */
+  function whoName(snapshot, userId) {
+    const n = cleanName(snapshot);
+    if (n) return n;
+    if (userId && userId === currentUserId() && cleanName(myFullName)) return cleanName(myFullName);
+    return '';
+  }
+
+  /** Timestamp → full month US date, e.g. September 21, 2026 */
+  function formatFullDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+
+  /** Was the row edited after creation (ignores the create-time updated_at)? */
+  function wasUpdated(obj) {
+    return !!cleanName(obj.updatedByName) || !!obj.updatedBy;
+  }
+
+  function createdByHtml(obj, opts) {
+    const o = opts || {};
+    const name = whoName(obj.createdByName, obj.createdBy);
+    if (!name && o.hideUnknown) return '';
+    const date = formatFullDate(obj.createdAt);
+    return '<span class="who-created" title="Created by ' + escapeHtml(name || 'Unknown') + (date ? ' on ' + escapeHtml(date) : '') + '">'
+      + 'Created by <span class="who-name">' + escapeHtml(name || 'Unknown') + '</span>'
+      + (date && o.withDate !== false ? ' · ' + escapeHtml(date) : '')
+      + '</span>';
+  }
+
+  function updatedByHtml(obj, opts) {
+    const o = opts || {};
+    if (!wasUpdated(obj)) return '';
+    const name = whoName(obj.updatedByName, obj.updatedBy);
+    if (!name && o.hideUnknown) return '';
+    const date = formatFullDate(obj.updatedAt);
+    return '<span class="who-updated" title="Last updated by ' + escapeHtml(name || 'Unknown') + (date ? ' on ' + escapeHtml(date) : '') + '">'
+      + 'Last updated by <span class="who-name">' + escapeHtml(name || 'Unknown') + '</span>'
+      + (date && o.withDate !== false ? ' · ' + escapeHtml(date) : '')
+      + '</span>';
+  }
+
+  /** Merge server-stamped tracking fields (from update ... select()) into a local object. */
+  function applyTrackingFromRow(obj, rows) {
+    const row = Array.isArray(rows) ? rows[0] : rows;
+    if (!obj || !row) return;
+    if ('updated_at' in row && row.updated_at) obj.updatedAt = row.updated_at;
+    if ('updated_by' in row) obj.updatedBy = row.updated_by || null;
+    if ('updated_by_name' in row) obj.updatedByName = cleanName(row.updated_by_name);
+    if ('created_by_name' in row) obj.createdByName = cleanName(row.created_by_name);
+    if ('created_by' in row && row.created_by) obj.createdBy = row.created_by;
+  }
+
+  function detectUserTracking(rows) {
+    const sample = (rows || [])[0];
+    userTrackingMissing = !!sample && !('created_by_name' in sample);
+    if (userTrackingMissing) {
+      console.warn('projects/tasks have no created_by_name column — run schema-user-tracking.sql in the Supabase SQL editor to show creator / updater full names.');
+    }
   }
 
   function projectToDb(p) {
@@ -3005,6 +3119,7 @@
     if (projRes.error) throw projRes.error;
     if (taskRes.error) throw taskRes.error;
 
+    detectUserTracking((projRes.data && projRes.data.length) ? projRes.data : taskRes.data);
     state.projects = (projRes.data || []).map(mapProjectFromDb);
     state.tasks = (taskRes.data || []).map(mapTaskFromDb);
 
@@ -3061,6 +3176,7 @@
       taskId: row.task_id,
       projectId: row.project_id || null,
       uploadedBy: row.uploaded_by || null,
+      uploadedByName: cleanName(row.uploaded_by_name),
       fileName: row.file_name || 'file',
       filePath: row.file_path || '',
       mimeType: row.mime_type || '',
@@ -3291,6 +3407,7 @@
       const size = formatFileSize(a.sizeBytes);
       const when = formatAuditTime(a.createdAt);
       const sub = [size, when].filter(Boolean).join(' · ');
+      const attachedBy = whoName(a.uploadedByName, a.uploadedBy) || 'Unknown';
       const thumb = isImageAttachment(a)
         ? `<img class="attach-thumb" data-attach-thumb="${escapeHtml(a.id)}" data-attach-open="${escapeHtml(a.id)}" alt="${escapeHtml(a.fileName)}" width="40" height="40" title="View image" role="button" tabindex="0" />`
         : `<span class="attach-thumb-ph" data-attach-open="${escapeHtml(a.id)}" title="Open file" role="button" tabindex="0" aria-label="Open ${escapeHtml(a.fileName)}">📄</span>`;
@@ -3299,6 +3416,7 @@
         <div class="attach-meta">
           <div class="attach-name"><a href="#" data-attach-open="${escapeHtml(a.id)}" title="View / open">${escapeHtml(a.fileName)}</a></div>
           <div class="attach-sub">${escapeHtml(sub)}</div>
+          <div class="attach-sub attach-by">Attached by <span class="who-name">${escapeHtml(attachedBy)}</span></div>
         </div>
         <div class="attach-actions">
           <button type="button" class="btn-attach-view" data-attach-open="${escapeHtml(a.id)}" title="View / open">View</button>
@@ -3505,6 +3623,7 @@
       taskId: row.task_id,
       projectId: row.project_id || null,
       uploadedBy: row.uploaded_by || null,
+      uploadedByName: cleanName(row.uploaded_by_name),
       fileName: row.file_name || 'file',
       filePath: row.file_path || '',
       mimeType: row.mime_type || '',
@@ -3618,6 +3737,7 @@
       const size = formatFileSize(a.sizeBytes);
       const when = formatAuditTime(a.createdAt);
       const sub = [size, when].filter(Boolean).join(' · ');
+      const attachedBy = whoName(a.uploadedByName, a.uploadedBy) || 'Unknown';
       const thumb = isImageAttachment(a)
         ? '<img class="attach-thumb" data-qa-attach-thumb="' + escapeHtml(a.id) + '" data-qa-attach-open="' + escapeHtml(a.id) + '" alt="' + escapeHtml(a.fileName) + '" width="40" height="40" title="View image" role="button" tabindex="0" />'
         : '<span class="attach-thumb-ph" data-qa-attach-open="' + escapeHtml(a.id) + '" title="Open file" role="button" tabindex="0" aria-label="Open ' + escapeHtml(a.fileName) + '">📄</span>';
@@ -3626,6 +3746,7 @@
         + '<div class="attach-meta">'
         + '<div class="attach-name"><a href="#" data-qa-attach-open="' + escapeHtml(a.id) + '" title="View / open">' + escapeHtml(a.fileName) + '</a></div>'
         + '<div class="attach-sub">' + escapeHtml(sub) + '</div>'
+        + '<div class="attach-sub attach-by">Attached by <span class="who-name">' + escapeHtml(attachedBy) + '</span></div>'
         + '</div>'
         + '<div class="attach-actions">'
         + '<button type="button" class="btn-attach-view" data-qa-attach-open="' + escapeHtml(a.id) + '" title="View / open">View</button>'
@@ -3845,8 +3966,8 @@
     const cls = latest.result === 'pass' ? 'pass' : 'fail';
     const label = latest.result === 'pass' ? 'Pass' : 'Fail';
     const when = formatAuditTime(latest.checkedAt);
-    const who = latest.testerName || latest.testerEmail || 'Unknown';
-    const title = escapeHtml(who + (when ? ' · ' + when : ''));
+    const who = whoName(latest.testerName, latest.testerId) || 'Unknown';
+    const title = escapeHtml("QA'd by " + who + (when ? ' · ' + when : ''));
     return '<span class="qa-badge ' + cls + '" title="' + title + '">QA: ' + label + '</span>';
   }
 
@@ -3907,7 +4028,7 @@
         + '</div>';
       return '<li data-qa-history-id="' + escapeHtml(c.id) + '">'
         + '<div class="qa-h-top"><span style="font-size:0.72rem;color:var(--text-dim)">Attempt ' + n + '</span> ' + badge + countBadge + '</div>'
-        + '<div class="qa-h-meta">' + escapeHtml(c.testerName || c.testerEmail || 'Unknown') + ' · ' + escapeHtml(formatAuditTime(c.checkedAt)) + '</div>'
+        + '<div class="qa-h-meta">QA\'d by <span class="who-name">' + escapeHtml(whoName(c.testerName, c.testerId) || 'Unknown') + '</span> · ' + escapeHtml(formatAuditTime(c.checkedAt)) + '</div>'
         + notes
         + attachPanel
         + '</li>';
@@ -5168,11 +5289,12 @@
     try {
       await runSync('Saving…', async () => {
         p.groupId = groupId;
-        const { error } = await supabase.from('projects').update(projectToDb(p)).eq('id', projectId);
+        const { data: updRows, error } = await supabase.from('projects').update(projectToDb(p)).eq('id', projectId).select();
         if (error) {
           p.groupId = prevGroupId;
           throw error;
         }
+        applyTrackingFromRow(p, updRows);
         await writeAudit({
           action: 'project.group_change',
           entityType: 'project',
@@ -5304,11 +5426,13 @@
         (async () => {
           try {
             await runSync('Saving…', async () => {
-              const { error } = await supabase
+              const { data: updRows, error } = await supabase
                 .from('projects')
                 .update(projectToDb(p))
-                .eq('id', id);
+                .eq('id', id)
+                .select();
               if (error) throw error;
+              applyTrackingFromRow(p, updRows);
               await writeAudit({
                 action: 'project.update',
                 entityType: 'project',
@@ -5336,6 +5460,7 @@
                 });
               }
             });
+            render(); // show server-stamped "Last updated by"
           } catch {
             Object.assign(p, prev);
             render();
@@ -5401,6 +5526,7 @@
     const branch = p.branch ?? '';
     const targetDate = p.targetDate ?? '';
     return `
+      ${whoBoxHtml(p)}
       <div class="form-group">
         <label for="f-name">Project title</label>
         <input id="f-name" name="name" required maxlength="120" value="${escapeHtml(p.name)}" />
@@ -6060,8 +6186,9 @@
         (async () => {
           try {
             await runSync('Saving…', async () => {
-              const { error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', id);
+              const { data: updRows, error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', id).select();
               if (error) throw error;
+              applyTrackingFromRow(t, updRows);
               const statusChanged = prev.status !== t.status;
               let action = 'task.update';
               if (statusChanged && t.status === 'hold') action = 'task.hold';
@@ -6079,6 +6206,7 @@
                 },
               });
             });
+            render(); // show server-stamped "Last updated by"
           } catch {
             Object.assign(t, prev);
             render();
@@ -6127,7 +6255,8 @@
     (async () => {
       try {
         await runSync('Saving…', async () => {
-          const { error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', t.id);
+          const { data: updRows, error } = await supabase.from('tasks').update(taskToDb(t)).eq('id', t.id).select();
+          if (!error) applyTrackingFromRow(t, updRows);
           if (error) {
             if (t.status === 'completed' && /check|constraint|status/i.test(error.message || '')) {
               throw new Error((error.message || 'Status rejected') +
@@ -6143,6 +6272,7 @@
             details: { status: t.status, prevStatus: prev.status },
           });
         });
+        render(); // show server-stamped "Last updated by"
       } catch (err) {
         console.error(err);
         Object.assign(t, prev);
@@ -6183,8 +6313,21 @@
     persistTaskStatusChange(t, prev, 'task.hold');
   }
 
+  function whoBoxHtml(obj) {
+    if (!obj || !obj.id) return '';
+    if (userTrackingMissing) {
+      return '<div class="who-box"><span>Creator / updater names need <code>schema-user-tracking.sql</code> in the Supabase SQL editor.</span></div>';
+    }
+    const upd = updatedByHtml(obj);
+    return '<div class="who-box">'
+      + '<div>' + createdByHtml(obj) + '</div>'
+      + (upd ? '<div>' + upd + '</div>' : '')
+      + '</div>';
+  }
+
   function taskFields(t) {
     return `
+      ${whoBoxHtml(t)}
       <div class="form-group">
         <label for="f-title">Title</label>
         <input id="f-title" name="title" required maxlength="200" value="${escapeHtml(t.title)}" />
@@ -6507,6 +6650,7 @@
               <span>${stats.done}/${stats.total}</span>
               ${p.clientName ? `<span>·</span><span title="Client">${escapeHtml(p.clientName)}</span>` : ''}
             </div>
+            ${userTrackingMissing ? '' : `<div class="meta meta-by">${createdByHtml(p, { withDate: false })}</div>`}
           </div>
           <div class="mini-bar" title="${stats.pctDone}% complete" aria-hidden="true">
             <span style="width:${stats.pctDone}%"></span>
@@ -6579,7 +6723,24 @@
           <span class="fact-label">Target date</span>
           <span class="fact-value ${targetCls}">${project.targetDate ? formatDue(project.targetDate) : 'Not set'}</span>
         </div>
+        ${userTrackingMissing ? '' : (() => {
+          const cName = whoName(project.createdByName, project.createdBy);
+          const cDate = formatFullDate(project.createdAt);
+          const uName = wasUpdated(project) ? whoName(project.updatedByName, project.updatedBy) : '';
+          const uDate = formatFullDate(project.updatedAt);
+          return `
+        <div class="fact">
+          <span class="fact-label">Created by</span>
+          <span class="fact-value ${cName ? '' : 'empty'}">${escapeHtml(cName || 'Unknown')}${cDate ? ` <span style="color:var(--text-dim);font-weight:400">· ${escapeHtml(cDate)}</span>` : ''}</span>
+        </div>
+        ${wasUpdated(project) ? `
+        <div class="fact">
+          <span class="fact-label">Last updated by</span>
+          <span class="fact-value ${uName ? '' : 'empty'}">${escapeHtml(uName || 'Unknown')}${uDate ? ` <span style="color:var(--text-dim);font-weight:400">· ${escapeHtml(uDate)}</span>` : ''}</span>
+        </div>` : ''}`;
+        })()}
       </div>
+      ${userTrackingMissing ? '<p class="who-missing">Creator / updater names need <code>schema-user-tracking.sql</code> in the Supabase SQL editor.</p>' : ''}
     `;
 
     main.innerHTML = `
@@ -6687,6 +6848,7 @@
             ${attachBadgeHtml(t.id)}
             ${due}
           </div>
+          ${userTrackingMissing ? '' : `<div class="who-line">${createdByHtml(t)}${updatedByHtml(t)}</div>`}
         </div>
         <div class="task-actions">
           ${(t.status === 'done' || qaForTask(t.id).length > 0)
