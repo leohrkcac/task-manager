@@ -1966,6 +1966,132 @@
       text-align: center;
     }
     #qa-modal .form-group { margin-bottom: 0.75rem; }
+
+    /* ── Project export (Excel / PDF) ── */
+    .project-status-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.6rem 1rem;
+      margin-top: 0.6rem;
+    }
+    .export-bar {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.25rem 0.2rem 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: var(--bg-elevated);
+    }
+    .export-bar .export-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      margin-right: 0.1rem;
+    }
+    .export-bar .export-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      border-radius: 999px;
+    }
+    .export-btn.is-busy { opacity: 0.75; cursor: progress; }
+    .export-btn.is-busy .ico { animation: export-pulse 0.9s ease-in-out infinite alternate; }
+    @keyframes export-pulse { from { opacity: 1; } to { opacity: 0.35; } }
+    .export-bar .ico, .export-menu .ico {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.58rem;
+      font-weight: 800;
+      letter-spacing: 0.02em;
+      border-radius: 4px;
+      padding: 0.12rem 0.28rem;
+      color: #fff;
+      line-height: 1.1;
+    }
+    .ico.xl { background: #1d7a46; }
+    .ico.pdf { background: #c62f3a; }
+    .export-menu {
+      position: fixed;
+      z-index: 2000;
+      min-width: 260px;
+      max-width: 320px;
+      padding: 0.35rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+    .export-menu-title {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      padding: 0.35rem 0.55rem 0.4rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .export-menu button {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: 0;
+      color: var(--text);
+      padding: 0.5rem 0.55rem;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font: inherit;
+    }
+    .export-menu button:hover, .export-menu button:focus-visible { background: var(--bg-hover); }
+    .export-menu button:disabled { opacity: 0.6; cursor: progress; }
+    .export-menu button .ico { font-size: 0.62rem; padding: 0.3rem 0.35rem; min-width: 2.1rem; }
+    .export-menu strong { display: block; font-size: 0.85rem; font-weight: 600; }
+    .export-menu small { display: block; font-size: 0.72rem; color: var(--text-muted); }
+    .project-item .meta span { white-space: nowrap; }
+    .project-item .meta span[title="Client"] { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+    /* Hover actions float over the card so the name/meta don't get squeezed */
+    .project-item { position: relative; }
+    .project-item:hover .project-actions,
+    .project-item:focus-within .project-actions {
+      position: absolute;
+      right: 0.4rem;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 0.1rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    }
+    .export-toast {
+      position: fixed;
+      left: 50%;
+      bottom: 1.25rem;
+      transform: translate(-50%, 1rem);
+      z-index: 2100;
+      max-width: min(92vw, 34rem);
+      padding: 0.65rem 1rem;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--bg-elevated);
+      color: var(--text);
+      box-shadow: var(--shadow);
+      font-size: 0.85rem;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.18s, transform 0.18s;
+    }
+    .export-toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
+    .export-toast.success { border-color: rgba(61, 214, 140, 0.5); }
+    .export-toast.error { border-color: rgba(240, 113, 120, 0.6); color: #ffd7da; }
+    .export-toast.busy { border-color: rgba(91, 141, 239, 0.5); }
+    @media (max-width: 640px) { .export-toast { bottom: 4.5rem; } }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -4465,6 +4591,7 @@
     'task.attachment_add': 'Added task attachment',
     'task.attachment_remove': 'Removed task attachment',
     'tasks.import': 'Imported tasks',
+    'project.export': 'Exported project report',
     'group.create': 'Created group',
     'group.rename': 'Renamed group',
     'group.delete': 'Deleted group',
@@ -4497,6 +4624,8 @@
     if (d.result) bits.push('QA result: ' + (d.result === 'pass' ? 'Pass' : (d.result === 'fail' ? 'Fail' : d.result)));
     if (d.attemptNo != null || d.attempt_no != null) bits.push('Attempt #' + (d.attemptNo ?? d.attempt_no));
     if (d.method) bits.push('Method: ' + d.method);
+    if (d.format) bits.push('Format: ' + d.format);
+    if (d.fileName) bits.push('File: ' + d.fileName);
     if (d.priority && d.prevPriority && d.priority !== d.prevPriority) bits.push('Priority: ' + d.prevPriority + ' → ' + d.priority);
     else if (d.priority && action && String(action).includes('create')) bits.push('Priority: ' + d.priority);
     if (d.groupName || d.group_name) bits.push('Group: ' + (d.groupName || d.group_name));
@@ -6538,6 +6667,1033 @@
     }
   }
 
+  // ── Project export (Excel .xlsx + PDF report) — client-side only ──
+  const EXPORT_LIBS = {
+    exceljs: [
+      'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
+      'https://unpkg.com/exceljs@4.4.0/dist/exceljs.min.js',
+    ],
+    jspdf: [
+      'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
+      'https://unpkg.com/jspdf@2.5.2/dist/jspdf.umd.min.js',
+    ],
+    autotable: [
+      'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js',
+      'https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js',
+    ],
+  };
+  const exportInFlight = new Set();
+
+  function loadExportScript(src) {
+    return new Promise((resolve, reject) => {
+      const existing = document.querySelector('script[data-export-cdn="' + src + '"]');
+      if (existing && existing.dataset.loaded === '1') { resolve(); return; }
+      if (existing) existing.remove();
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.dataset.exportCdn = src;
+      s.onload = () => { s.dataset.loaded = '1'; resolve(); };
+      s.onerror = () => { s.remove(); reject(new Error('Failed to load ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  async function loadFirstExportLib(sources, isReady, label) {
+    if (isReady()) return;
+    for (const src of sources) {
+      try {
+        await loadExportScript(src);
+        if (isReady()) return;
+      } catch (err) {
+        console.warn(err);
+      }
+    }
+    throw new Error('Could not load the ' + label + ' library from the CDN. Check your internet connection or ad-blocker, then try again.');
+  }
+
+  async function ensureExcelJs() {
+    await loadFirstExportLib(EXPORT_LIBS.exceljs, () => !!(window.ExcelJS && window.ExcelJS.Workbook), 'Excel export (ExcelJS)');
+    return window.ExcelJS;
+  }
+
+  async function ensureJsPdf() {
+    await loadFirstExportLib(EXPORT_LIBS.jspdf, () => !!(window.jspdf && window.jspdf.jsPDF), 'PDF export (jsPDF)');
+    const hasAutoTable = () => {
+      try { return typeof new window.jspdf.jsPDF().autoTable === 'function'; } catch { return false; }
+    };
+    await loadFirstExportLib(EXPORT_LIBS.autotable, hasAutoTable, 'PDF table (jsPDF-AutoTable)');
+    return window.jspdf.jsPDF;
+  }
+
+  function exportToast(text, kind) {
+    let el = document.getElementById('export-toast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'export-toast';
+      el.className = 'export-toast';
+      el.setAttribute('role', 'status');
+      el.setAttribute('aria-live', 'polite');
+      document.body.appendChild(el);
+    }
+    clearTimeout(el._hideTimer);
+    if (!text) { el.classList.remove('show'); return; }
+    el.className = 'export-toast show ' + (kind || 'info');
+    el.textContent = text;
+    if (kind !== 'busy') {
+      el._hideTimer = setTimeout(() => el.classList.remove('show'), kind === 'error' ? 9000 : 4500);
+    }
+  }
+
+  function exportDateStamp(d) {
+    const dt = d || new Date();
+    return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+  }
+
+  function exportFileName(projectName, ext) {
+    let base = String(projectName || 'Project')
+      .replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/^[.\s]+|[.\s]+$/g, '');
+    if (!base) base = 'Project';
+    if (base.length > 80) base = base.slice(0, 80).trim();
+    return base + ' - Task Report - ' + exportDateStamp() + '.' + ext;
+  }
+
+  /** e.g. October 8, 2026 at 10:15 AM */
+  function exportDateTimeText(iso) {
+    if (!iso) return '';
+    const d = iso instanceof Date ? iso : new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const date = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase();
+    return date + ' at ' + time;
+  }
+
+  function exportStatusLabel(s) {
+    return { pending: 'Pending', done: 'Done', completed: 'Completed', hold: 'On Hold' }[s] || (s || '');
+  }
+
+  function exportPriorityLabel(p) {
+    return { high: 'High', medium: 'Medium', low: 'Low' }[p] || (p ? String(p).charAt(0).toUpperCase() + String(p).slice(1) : '');
+  }
+
+  function exportFileType(a) {
+    const ext = attachFileExt(a.fileName || '');
+    const map = {
+      png: 'Image (PNG)', jpg: 'Image (JPG)', jpeg: 'Image (JPG)', gif: 'Image (GIF)', webp: 'Image (WEBP)',
+      pdf: 'PDF', csv: 'CSV', txt: 'Text', xlsx: 'Excel', xls: 'Excel', doc: 'Word', docx: 'Word',
+    };
+    if (map[ext]) return map[ext];
+    if (a.mimeType) return a.mimeType;
+    return ext ? ext.toUpperCase() : 'File';
+  }
+
+  /** Tasks in report order: Pending (lineup), On Hold, Done, Completed; then priority, due date, title. */
+  function exportSortedTasks(projectId) {
+    const STATUS_SORT = { pending: 0, hold: 1, done: 2, completed: 3 };
+    return projectTasks(projectId).slice().sort((a, b) => {
+      const sa = STATUS_SORT[a.status] ?? 9;
+      const sb = STATUS_SORT[b.status] ?? 9;
+      if (sa !== sb) return sa - sb;
+      if (a.status === 'pending') {
+        const la = a.lineupOrder == null ? Infinity : a.lineupOrder;
+        const lb = b.lineupOrder == null ? Infinity : b.lineupOrder;
+        if (la !== lb) return la - lb;
+      }
+      const pa = PRIORITY_ORDER[a.priority] ?? 9;
+      const pb = PRIORITY_ORDER[b.priority] ?? 9;
+      if (pa !== pb) return pa - pb;
+      const da = a.dueDate || '9999-99-99';
+      const db = b.dueDate || '9999-99-99';
+      if (da !== db) return da < db ? -1 : 1;
+      return (a.title || '').localeCompare(b.title || '');
+    });
+  }
+
+  /** Everything both exporters need, gathered once from in-memory state. */
+  function buildProjectReport(projectId) {
+    const project = getProject(projectId);
+    if (!project) throw new Error('Project not found. Refresh and try again.');
+    const now = new Date();
+    const tasks = exportSortedTasks(project.id);
+    const stats = taskStats(tasks);
+    const taskNo = new Map(tasks.map((t, i) => [t.id, i + 1]));
+    const taskById = new Map(tasks.map((t) => [t.id, t]));
+
+    const taskRows = tasks.map((t, i) => {
+      const qa = latestQa(t.id);
+      return {
+        no: i + 1,
+        task: t,
+        title: t.title || '',
+        notes: t.notes || '',
+        status: exportStatusLabel(t.status),
+        statusKey: t.status,
+        priority: exportPriorityLabel(t.priority),
+        priorityKey: t.priority,
+        dueDate: t.dueDate || '',
+        createdBy: whoName(t.createdByName, t.createdBy) || 'Unknown',
+        createdAt: t.createdAt || '',
+        updatedBy: wasUpdated(t) ? (whoName(t.updatedByName, t.updatedBy) || 'Unknown') : '',
+        updatedAt: wasUpdated(t) ? (t.updatedAt || '') : '',
+        qaResult: qa ? (qa.result === 'pass' ? 'Pass' : 'Fail') : ((t.status === 'done' || t.status === 'completed') ? 'Not tested' : ''),
+        qaKey: qa ? qa.result : '',
+        qaBy: qa ? (whoName(qa.testerName, qa.testerId) || 'Unknown') : '',
+        qaAt: qa ? (qa.checkedAt || '') : '',
+        qaCount: qaForTask(t.id).length,
+        files: attachmentsForTask(t.id).length,
+      };
+    });
+
+    const qaRows = [];
+    tasks.forEach((t) => {
+      qaForTask(t.id).forEach((c) => {
+        qaRows.push({
+          taskNo: taskNo.get(t.id),
+          task: t.title || '',
+          attempt: c.attemptNo,
+          result: c.result === 'pass' ? 'Pass' : 'Fail',
+          resultKey: c.result,
+          tester: whoName(c.testerName, c.testerId) || 'Unknown',
+          checkedAt: c.checkedAt || '',
+          notes: c.notes || '',
+          files: attachmentsForQaCheck(c.id).length,
+        });
+      });
+    });
+
+    const attachRows = [];
+    tasks.forEach((t) => {
+      attachmentsForTask(t.id).forEach((a) => {
+        attachRows.push({ fileName: a.fileName, source: 'Task', taskNo: taskNo.get(t.id), task: t.title || '', by: whoName(a.uploadedByName, a.uploadedBy) || 'Unknown', at: a.createdAt || '', type: exportFileType(a), size: a.sizeBytes });
+      });
+      qaForTask(t.id).forEach((c) => {
+        attachmentsForQaCheck(c.id).forEach((a) => {
+          attachRows.push({ fileName: a.fileName, source: 'QA check (' + (c.result === 'pass' ? 'Pass' : 'Fail') + ')', taskNo: taskNo.get(t.id), task: t.title || '', by: whoName(a.uploadedByName, a.uploadedBy) || 'Unknown', at: a.createdAt || '', type: exportFileType(a), size: a.sizeBytes });
+        });
+      });
+    });
+
+    const qaPass = qaRows.filter((r) => r.resultKey === 'pass').length;
+    return {
+      project,
+      now,
+      exportedBy: cleanName(myFullName) || 'Unknown',
+      stats,
+      taskRows,
+      qaRows,
+      attachRows,
+      qaPass,
+      qaFail: qaRows.length - qaPass,
+      taskById,
+      createdBy: whoName(project.createdByName, project.createdBy) || 'Unknown',
+      updatedBy: wasUpdated(project) ? (whoName(project.updatedByName, project.updatedBy) || 'Unknown') : '',
+      department: project.groupId ? (groupName(project.groupId) || '') : '',
+      statusText: STATUS_LABELS[project.status] || project.status || '',
+    };
+  }
+
+  // ── Excel ──
+  const XL = {
+    navy: 'FF1F2A44', accent: 'FF3B6FD8', headFill: 'FF1F2A44', headText: 'FFFFFFFF',
+    zebra: 'FFF5F7FB', border: 'FFD9DEE8', label: 'FF5B6475', text: 'FF1F2430',
+    status: {
+      pending: { fill: 'FFFFF4DB', font: 'FF9A6200' },
+      hold: { fill: 'FFECEEF2', font: 'FF5B6475' },
+      done: { fill: 'FFE3EDFF', font: 'FF2457C5' },
+      completed: { fill: 'FFDFF6EA', font: 'FF17804C' },
+    },
+    priority: { high: 'FFC62F3A', medium: 'FFB86E00', low: 'FF3A6BD1' },
+    pass: { fill: 'FFDFF6EA', font: 'FF17804C' },
+    fail: { fill: 'FFFDE4E5', font: 'FFC62F3A' },
+  };
+
+  /** Date-only 'YYYY-MM-DD' → Date whose UTC parts match (Excel shows the same calendar day). */
+  function xlDateOnly(iso) {
+    if (!iso) return null;
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso));
+    if (!m) return null;
+    return new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  }
+
+  /** Timestamp → Date shifted so Excel (which has no time zone) shows local wall-clock time. */
+  function xlLocal(iso) {
+    if (!iso) return null;
+    const d = iso instanceof Date ? iso : new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+  }
+
+  const XL_DATE = 'mmmm d, yyyy';
+  const XL_DATETIME = 'mmmm d, yyyy h:mm AM/PM';
+
+  function xlThinBorder() {
+    const s = { style: 'thin', color: { argb: XL.border } };
+    return { top: s, left: s, bottom: s, right: s };
+  }
+
+  /** Header row, zebra, borders, freeze, autofilter for a table sheet. */
+  function xlStyleTable(ws, headerRowNo, colCount, rowCount) {
+    const head = ws.getRow(headerRowNo);
+    head.height = 22;
+    for (let c = 1; c <= colCount; c++) {
+      const cell = head.getCell(c);
+      cell.font = { bold: true, color: { argb: XL.headText }, size: 10.5 };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.headFill } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+      cell.border = xlThinBorder();
+    }
+    for (let r = headerRowNo + 1; r <= headerRowNo + rowCount; r++) {
+      const row = ws.getRow(r);
+      const zebra = (r - headerRowNo) % 2 === 0;
+      for (let c = 1; c <= colCount; c++) {
+        const cell = row.getCell(c);
+        cell.border = xlThinBorder();
+        cell.font = Object.assign({ size: 10, color: { argb: XL.text } }, cell.font || {});
+        cell.alignment = Object.assign({ vertical: 'top', wrapText: true }, cell.alignment || {});
+        if (zebra && !cell.fill) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.zebra } };
+      }
+    }
+    ws.views = [{ state: 'frozen', xSplit: 0, ySplit: headerRowNo, topLeftCell: 'A' + (headerRowNo + 1), activeCell: 'A' + (headerRowNo + 1) }];
+    if (rowCount > 0) {
+      ws.autoFilter = { from: { row: headerRowNo, column: 1 }, to: { row: headerRowNo + rowCount, column: colCount } };
+    }
+  }
+
+  /** Explicit row heights so wrapped text is never clipped (Excel does not always auto-fit on open). */
+  function xlFitRows(ws, firstRow, rowCount, widths) {
+    for (let r = firstRow; r < firstRow + rowCount; r++) {
+      const row = ws.getRow(r);
+      let lines = 1;
+      widths.forEach((w, i) => {
+        const v = row.getCell(i + 1).value;
+        if (v == null || v instanceof Date || typeof v === 'number') return;
+        const perLine = Math.max(4, Math.floor(w * 1.15) - 1);
+        const n = String(v).split('\n').reduce((acc, part) => acc + Math.max(1, Math.ceil(part.length / perLine)), 0);
+        if (n > lines) lines = n;
+      });
+      row.height = Math.max(17, Math.min(409, lines * 13.2 + 4));
+    }
+  }
+
+  function xlPill(cell, colors) {
+    if (!colors) return;
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.fill } };
+    cell.font = { bold: true, size: 10, color: { argb: colors.font } };
+    cell.alignment = { vertical: 'top', horizontal: 'center' };
+  }
+
+  function xlEmptyNote(ws, rowNo, colCount, text) {
+    ws.mergeCells(rowNo, 1, rowNo, colCount);
+    const cell = ws.getCell(rowNo, 1);
+    cell.value = text;
+    cell.font = { italic: true, color: { argb: XL.label }, size: 10 };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    ws.getRow(rowNo).height = 24;
+  }
+
+  function xlTitleBlock(ws, colCount, title, subtitle) {
+    ws.mergeCells(1, 1, 1, colCount);
+    const t = ws.getCell(1, 1);
+    t.value = title;
+    t.font = { bold: true, size: 15, color: { argb: XL.navy } };
+    t.alignment = { vertical: 'middle' };
+    ws.getRow(1).height = 26;
+    ws.mergeCells(2, 1, 2, colCount);
+    const s = ws.getCell(2, 1);
+    s.value = subtitle;
+    s.font = { size: 9.5, color: { argb: XL.label } };
+  }
+
+  async function buildProjectXlsx(r) {
+    const ExcelJS = await ensureExcelJs();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = r.exportedBy;
+    wb.lastModifiedBy = r.exportedBy;
+    wb.created = r.now;
+    wb.modified = r.now;
+    wb.title = r.project.name + ' - Task Report';
+    wb.company = 'Task Manager';
+    const p = r.project;
+    const s = r.stats;
+    const subtitle = 'Exported ' + exportDateTimeText(r.now) + ' by ' + r.exportedBy;
+
+    // Summary
+    const sum = wb.addWorksheet('Summary', { properties: { tabColor: { argb: XL.accent } }, pageSetup: { paperSize: 9, orientation: 'portrait', fitToPage: true, fitToWidth: 1, fitToHeight: 0 } });
+    sum.columns = [{ width: 26 }, { width: 44 }, { width: 16 }, { width: 16 }];
+    sum.mergeCells('A1:D1');
+    sum.getCell('A1').value = 'Task Manager';
+    sum.getCell('A1').font = { bold: true, size: 10, color: { argb: XL.accent } };
+    sum.mergeCells('A2:D2');
+    sum.getCell('A2').value = p.name || 'Untitled project';
+    sum.getCell('A2').font = { bold: true, size: 18, color: { argb: XL.navy } };
+    sum.getRow(2).height = 30;
+    sum.mergeCells('A3:D3');
+    sum.getCell('A3').value = 'Project Task Report';
+    sum.getCell('A3').font = { size: 11, color: { argb: XL.label } };
+
+    let row = 5;
+    const section = (label) => {
+      sum.mergeCells(row, 1, row, 4);
+      const c = sum.getCell(row, 1);
+      c.value = label;
+      c.font = { bold: true, size: 11, color: { argb: XL.headText } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: XL.navy } };
+      c.alignment = { vertical: 'middle', indent: 1 };
+      sum.getRow(row).height = 20;
+      row++;
+    };
+    const kv = (label, value, numFmt, opts) => {
+      const o = opts || {};
+      const a = sum.getCell(row, 1);
+      a.value = label;
+      a.font = { bold: true, size: 10, color: { argb: XL.label } };
+      a.alignment = { vertical: 'top' };
+      sum.mergeCells(row, 2, row, 4);
+      const b = sum.getCell(row, 2);
+      b.value = (value === '' || value == null) ? (o.empty || 'Not set') : value;
+      b.font = { size: 10.5, bold: !!o.bold, color: { argb: (value === '' || value == null) ? XL.label : XL.text }, italic: (value === '' || value == null) };
+      b.alignment = { vertical: 'top', horizontal: 'left', wrapText: true };
+      if (numFmt && value instanceof Date) b.numFmt = numFmt;
+      [a, b].forEach((c) => { c.border = { bottom: { style: 'hair', color: { argb: XL.border } } }; });
+      if (o.height) sum.getRow(row).height = o.height;
+      row++;
+    };
+
+    section('Project details');
+    kv('Project', p.name, null, { bold: true });
+    if (p.description) kv('Description', p.description, null, { height: Math.min(90, 15 * Math.ceil(p.description.length / 60)) });
+    kv('Client', p.clientName);
+    kv('Branch', p.branch);
+    if (r.department) kv('Department', r.department);
+    kv('Status', r.statusText);
+    kv('Target date', xlDateOnly(p.targetDate), XL_DATE);
+    kv('Created by', r.createdBy + (p.createdAt ? ' · ' + formatFullDate(p.createdAt) : ''));
+    kv('Last updated by', r.updatedBy ? (r.updatedBy + (p.updatedAt ? ' · ' + formatFullDate(p.updatedAt) : '')) : '', null, { empty: 'No edits logged' });
+    kv('Exported by', r.exportedBy);
+    kv('Export date', exportDateTimeText(r.now));
+    row++;
+
+    section('Task summary');
+    const headRow = sum.getRow(row);
+    ['Status', 'Tasks', 'Share of all tasks'].forEach((h, i) => {
+      const c = headRow.getCell(i === 0 ? 1 : i + 2);
+      c.value = h;
+      c.font = { bold: true, size: 10, color: { argb: XL.label } };
+      c.border = { bottom: { style: 'thin', color: { argb: XL.border } } };
+    });
+    sum.getCell(row, 2).border = { bottom: { style: 'thin', color: { argb: XL.border } } };
+    row++;
+    const all = s.allCount;
+    const countRow = (label, n, colors, bold) => {
+      const a = sum.getCell(row, 1);
+      a.value = label;
+      a.font = { bold: true, size: 10.5, color: { argb: colors ? colors.font : XL.text } };
+      if (colors) a.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.fill } };
+      const c = sum.getCell(row, 3);
+      c.value = n;
+      c.font = { bold: !!bold, size: 10.5 };
+      c.alignment = { horizontal: 'center' };
+      const d = sum.getCell(row, 4);
+      d.value = all ? n / all : 0;
+      d.numFmt = '0%';
+      d.alignment = { horizontal: 'center' };
+      d.font = { size: 10, color: { argb: XL.label } };
+      [a, sum.getCell(row, 2), c, d].forEach((x) => { x.border = { bottom: { style: 'hair', color: { argb: XL.border } } }; });
+      row++;
+    };
+    countRow('Pending', s.pending, XL.status.pending);
+    countRow('Done (awaiting QA)', s.doneOnly, XL.status.done);
+    countRow('Completed (QA passed)', s.completed, XL.status.completed);
+    countRow('On Hold', s.hold, XL.status.hold);
+    countRow('Total tasks', all, null, true);
+    row++;
+    const pctLabel = sum.getCell(row, 1);
+    pctLabel.value = 'Percent complete';
+    pctLabel.font = { bold: true, size: 11, color: { argb: XL.navy } };
+    const pctCell = sum.getCell(row, 3);
+    pctCell.value = s.pctDone / 100;
+    pctCell.numFmt = '0%';
+    pctCell.font = { bold: true, size: 14, color: { argb: 'FF17804C' } };
+    pctCell.alignment = { horizontal: 'center' };
+    const pctBar = sum.getCell(row, 2);
+    const blocks = Math.round(s.pctDone / 5);
+    pctBar.value = '█'.repeat(blocks) + '░'.repeat(20 - blocks);
+    pctBar.font = { size: 10, color: { argb: 'FF17804C' } };
+    sum.getRow(row).height = 22;
+    row++;
+    const note = sum.getCell(row, 1);
+    sum.mergeCells(row, 1, row, 4);
+    note.value = all === 0
+      ? 'This project has no tasks yet.'
+      : 'Percent complete = (Done + Completed) ÷ tasks excluding On Hold (' + s.done + ' of ' + s.total + ').';
+    note.font = { italic: true, size: 9, color: { argb: XL.label } };
+    row += 2;
+
+    section('QA & files');
+    kv('QA checks logged', r.qaRows.length ? r.qaRows.length + ' (' + r.qaPass + ' Pass · ' + r.qaFail + ' Fail)' : 0);
+    kv('Attachments', r.attachRows.length);
+
+    // Tasks
+    const tw = wb.addWorksheet('Tasks', { properties: { tabColor: { argb: 'FF17804C' } }, pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '3:3' } });
+    const taskCols = [
+      ['#', 5], ['Title', 36], ['Notes', 48], ['Status', 13], ['Priority', 10], ['Due date', 19],
+      ['Created by', 22], ['Created date', 19], ['Last updated by', 22], ['Updated date', 19],
+      ['Latest QA', 12], ["QA'd by", 22], ['QA date', 25], ['Attachments', 12],
+    ];
+    tw.columns = taskCols.map(([, w]) => ({ width: w }));
+    xlTitleBlock(tw, taskCols.length, (p.name || 'Project') + ' — Tasks', subtitle);
+    tw.getRow(3).values = taskCols.map(([h]) => h);
+    r.taskRows.forEach((t, i) => {
+      const rr = tw.getRow(4 + i);
+      rr.values = [
+        t.no, t.title, t.notes || null, t.status, t.priority, xlDateOnly(t.dueDate),
+        t.createdBy, xlLocal(t.createdAt), t.updatedBy || null, xlLocal(t.updatedAt),
+        t.qaResult || null, t.qaBy || null, xlLocal(t.qaAt), t.files,
+      ];
+    });
+    xlStyleTable(tw, 3, taskCols.length, r.taskRows.length);
+    r.taskRows.forEach((t, i) => {
+      const rr = tw.getRow(4 + i);
+      rr.getCell(1).alignment = { vertical: 'top', horizontal: 'center' };
+      rr.getCell(2).font = { bold: true, size: 10, color: { argb: XL.text } };
+      xlPill(rr.getCell(4), XL.status[t.statusKey]);
+      if (XL.priority[t.priorityKey]) rr.getCell(5).font = { bold: true, size: 10, color: { argb: XL.priority[t.priorityKey] } };
+      [6, 8, 10, 13].forEach((c) => {
+        rr.getCell(c).numFmt = c === 13 ? XL_DATETIME : XL_DATE;
+        rr.getCell(c).alignment = { vertical: 'top', horizontal: 'left' };
+      });
+      if (t.qaKey) xlPill(rr.getCell(11), XL[t.qaKey]);
+      else if (t.qaResult) rr.getCell(11).font = { italic: true, size: 10, color: { argb: XL.label } };
+      rr.getCell(14).alignment = { vertical: 'top', horizontal: 'center' };
+      if (t.dueDate && t.dueDate < todayISO() && t.statusKey === 'pending') {
+        rr.getCell(6).font = { bold: true, size: 10, color: { argb: 'FFC62F3A' } };
+      }
+    });
+    xlFitRows(tw, 4, r.taskRows.length, taskCols.map(([, w]) => w));
+    if (!r.taskRows.length) xlEmptyNote(tw, 4, taskCols.length, 'No tasks in this project yet.');
+
+    // QA History
+    const qw = wb.addWorksheet('QA History', { properties: { tabColor: { argb: 'FFB86E00' } }, pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '3:3' } });
+    const qaCols = [['Task #', 8], ['Task', 38], ['Attempt', 9], ['Result', 10], ['Tester', 24], ['Date tested', 26], ['Notes', 52], ['Attachments', 12]];
+    qw.columns = qaCols.map(([, w]) => ({ width: w }));
+    xlTitleBlock(qw, qaCols.length, (p.name || 'Project') + ' — QA History', subtitle);
+    qw.getRow(3).values = qaCols.map(([h]) => h);
+    r.qaRows.forEach((q, i) => {
+      qw.getRow(4 + i).values = [q.taskNo, q.task, q.attempt == null ? null : q.attempt, q.result, q.tester, xlLocal(q.checkedAt), q.notes || null, q.files];
+    });
+    xlStyleTable(qw, 3, qaCols.length, r.qaRows.length);
+    r.qaRows.forEach((q, i) => {
+      const rr = qw.getRow(4 + i);
+      rr.getCell(1).alignment = { vertical: 'top', horizontal: 'center' };
+      rr.getCell(3).alignment = { vertical: 'top', horizontal: 'center' };
+      xlPill(rr.getCell(4), XL[q.resultKey]);
+      rr.getCell(6).numFmt = XL_DATETIME;
+      rr.getCell(6).alignment = { vertical: 'top', horizontal: 'left' };
+      rr.getCell(8).alignment = { vertical: 'top', horizontal: 'center' };
+    });
+    xlFitRows(qw, 4, r.qaRows.length, qaCols.map(([, w]) => w));
+    if (!r.qaRows.length) xlEmptyNote(qw, 4, qaCols.length, 'No QA checks logged for this project yet.');
+
+    // Attachments
+    const aw = wb.addWorksheet('Attachments', { properties: { tabColor: { argb: 'FF7A5AF8' } }, pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '3:3' } });
+    const atCols = [['File name', 40], ['Attached to', 17], ['Task #', 8], ['Task', 36], ['Attached by', 24], ['Date attached', 26], ['Type', 14], ['Size', 11]];
+    aw.columns = atCols.map(([, w]) => ({ width: w }));
+    xlTitleBlock(aw, atCols.length, (p.name || 'Project') + ' — Attachments', subtitle + ' · Files stay in Task Manager (links are not exported because they expire).');
+    aw.getRow(3).values = atCols.map(([h]) => h);
+    r.attachRows.forEach((a, i) => {
+      aw.getRow(4 + i).values = [a.fileName, a.source, a.taskNo, a.task, a.by, xlLocal(a.at), a.type, formatFileSize(a.size)];
+    });
+    xlStyleTable(aw, 3, atCols.length, r.attachRows.length);
+    r.attachRows.forEach((a, i) => {
+      const rr = aw.getRow(4 + i);
+      rr.getCell(3).alignment = { vertical: 'top', horizontal: 'center' };
+      rr.getCell(6).numFmt = XL_DATETIME;
+      rr.getCell(6).alignment = { vertical: 'top', horizontal: 'left' };
+      rr.getCell(8).alignment = { vertical: 'top', horizontal: 'right' };
+    });
+    xlFitRows(aw, 4, r.attachRows.length, atCols.map(([, w]) => w));
+    if (!r.attachRows.length) xlEmptyNote(aw, 4, atCols.length, 'No files attached in this project yet.');
+
+    const buf = await wb.xlsx.writeBuffer();
+    return new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  }
+
+  // ── PDF ──
+  const PDF = {
+    navy: [31, 42, 68], accent: [59, 111, 216], text: [31, 36, 48], muted: [91, 100, 117], line: [217, 222, 232],
+    zebra: [245, 247, 251], white: [255, 255, 255],
+    status: {
+      pending: { fill: [255, 244, 219], text: [154, 98, 0] },
+      hold: { fill: [236, 238, 242], text: [91, 100, 117] },
+      done: { fill: [227, 237, 255], text: [36, 87, 197] },
+      completed: { fill: [223, 246, 234], text: [23, 128, 76] },
+    },
+    priority: { high: [198, 47, 58], medium: [184, 110, 0], low: [58, 107, 209] },
+    pass: { fill: [223, 246, 234], text: [23, 128, 76] },
+    fail: { fill: [253, 228, 229], text: [198, 47, 58] },
+  };
+
+  /** jsPDF core fonts only cover Latin-1: normalise punctuation, drop what cannot render. */
+  function pdfText(v) {
+    return String(v ?? '')
+      .replace(/[\u2018\u2019\u201B\u2032]/g, "'")
+      .replace(/[\u201C\u201D\u201F\u2033]/g, '"')
+      .replace(/[\u2013\u2014\u2015\u2212]/g, '-')
+      .replace(/\u2026/g, '...')
+      .replace(/\u20B1/g, 'PHP ')
+      .replace(/[\u2022\u25CF\u25AA]/g, '-')
+      .replace(/\u00A0/g, ' ')
+      .replace(/\r\n?/g, '\n')
+      .replace(/[^\n\t\u0020-\u007E\u00A1-\u00FF]/g, '');
+  }
+
+  async function buildProjectPdf(r) {
+    const JsPDF = await ensureJsPdf();
+    const doc = new JsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const p = r.project;
+    const s = r.stats;
+    const W = doc.internal.pageSize.getWidth();
+    const H = doc.internal.pageSize.getHeight();
+    const M = 14;
+    const exportedLine = 'Exported ' + exportDateTimeText(r.now) + ' by ' + r.exportedBy;
+    doc.setProperties({ title: pdfText(p.name + ' - Task Report'), subject: 'Project Task Report', author: pdfText(r.exportedBy), creator: 'Task Manager' });
+
+    // Page 1 header band
+    doc.setFillColor(...PDF.navy);
+    doc.rect(0, 0, W, 30, 'F');
+    doc.setFillColor(...PDF.accent);
+    doc.rect(0, 30, W, 1.2, 'F');
+    doc.setTextColor(170, 190, 235);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.text('TASK MANAGER  |  PROJECT TASK REPORT', M, 10);
+    doc.setTextColor(...PDF.white);
+    doc.setFontSize(19);
+    const titleLines = doc.splitTextToSize(pdfText(p.name || 'Untitled project'), W - 2 * M - 85);
+    doc.text(titleLines[0] + (titleLines.length > 1 ? '...' : ''), M, 21);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(215, 224, 245);
+    doc.text('Exported ' + exportDateTimeText(r.now), W - M, 15, { align: 'right' });
+    doc.text(pdfText('by ' + r.exportedBy), W - M, 21, { align: 'right' });
+
+    let y = 39;
+    // Project details (two-column grid, left) + description
+    const details = [
+      ['Client', p.clientName || 'Not set'],
+      ['Branch', p.branch || 'Not set'],
+      ['Status', r.statusText || 'Not set'],
+      ['Target date', p.targetDate ? formatDue(p.targetDate) : 'Not set'],
+      ['Created by', r.createdBy + (p.createdAt ? ' \u00B7 ' + formatFullDate(p.createdAt) : '')],
+      ['Last updated by', r.updatedBy ? (r.updatedBy + (p.updatedAt ? ' \u00B7 ' + formatFullDate(p.updatedAt) : '')) : 'No edits logged'],
+    ];
+    if (r.department) details.splice(2, 0, ['Department', r.department]);
+    const detailW = 150;
+    const colW = detailW / 2;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...PDF.navy);
+    doc.text('Project details', M, y);
+    y += 2.5;
+    doc.setDrawColor(...PDF.line);
+    doc.setLineWidth(0.3);
+    doc.line(M, y, M + detailW, y);
+    y += 5;
+    const detailTop = y;
+    details.forEach(([label, value], i) => {
+      const cx = M + (i % 2) * colW;
+      const cy = detailTop + Math.floor(i / 2) * 11;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...PDF.muted);
+      doc.text(label.toUpperCase(), cx, cy);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      const empty = /^(Not set|No edits logged)$/.test(value);
+      doc.setTextColor(...(empty ? PDF.muted : PDF.text));
+      const lines = doc.splitTextToSize(pdfText(value), colW - 4);
+      doc.text(lines[0] + (lines.length > 1 ? '...' : ''), cx, cy + 4.5);
+    });
+    let detailBottom = detailTop + Math.ceil(details.length / 2) * 11 - 3;
+    if (p.description) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...PDF.muted);
+      doc.text('DESCRIPTION', M, detailBottom + 3);
+      doc.setFontSize(9);
+      doc.setTextColor(...PDF.text);
+      const dl = doc.splitTextToSize(pdfText(p.description), detailW - 4).slice(0, 3);
+      doc.text(dl, M, detailBottom + 7.5);
+      detailBottom += 7.5 + dl.length * 4;
+    }
+
+    // Summary panel (right)
+    const px = M + detailW + 10;
+    const pw = W - M - px;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...PDF.navy);
+    doc.text('Progress', px, 39);
+    doc.setDrawColor(...PDF.line);
+    doc.line(px, 41.5, px + pw, 41.5);
+    doc.setFontSize(26);
+    doc.setTextColor(23, 128, 76);
+    doc.text(s.pctDone + '%', px, 55);
+    const pctW = doc.getTextWidth(s.pctDone + '%');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...PDF.muted);
+    doc.text(s.allCount ? ('complete  (' + s.done + ' of ' + s.total + ' tasks, On Hold excluded)') : 'complete  (no tasks yet)', px + pctW + 3, 55);
+    const barY = 59;
+    doc.setFillColor(230, 234, 241);
+    doc.roundedRect(px, barY, pw, 4, 2, 2, 'F');
+    if (s.pctDone > 0) {
+      doc.setFillColor(61, 190, 120);
+      doc.roundedRect(px, barY, Math.max(4, pw * s.pctDone / 100), 4, 2, 2, 'F');
+    }
+    const boxes = [
+      ['Total', s.allCount, PDF.navy, [238, 241, 247]],
+      ['Pending', s.pending, PDF.status.pending.text, PDF.status.pending.fill],
+      ['Done', s.doneOnly, PDF.status.done.text, PDF.status.done.fill],
+      ['Completed', s.completed, PDF.status.completed.text, PDF.status.completed.fill],
+      ['On Hold', s.hold, PDF.status.hold.text, PDF.status.hold.fill],
+    ];
+    const gap = 2.5;
+    const bw = (pw - gap * (boxes.length - 1)) / boxes.length;
+    const by = 68;
+    boxes.forEach(([label, n, tc, fc], i) => {
+      const bx = px + i * (bw + gap);
+      doc.setFillColor(...fc);
+      doc.roundedRect(bx, by, bw, 17, 1.8, 1.8, 'F');
+      doc.setFillColor(...tc);
+      doc.rect(bx, by, bw, 1.1, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15);
+      doc.setTextColor(...tc);
+      doc.text(String(n), bx + bw / 2, by + 9.5, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.text(label, bx + bw / 2, by + 14.3, { align: 'center' });
+    });
+    doc.setFontSize(8);
+    doc.setTextColor(...PDF.muted);
+    doc.text(
+      'QA checks: ' + r.qaRows.length + (r.qaRows.length ? ' (' + r.qaPass + ' Pass, ' + r.qaFail + ' Fail)' : '') + '    Attachments: ' + r.attachRows.length,
+      px, by + 22
+    );
+
+    y = Math.max(detailBottom, by + 22) + 9;
+
+    const sectionTitle = (label, count) => {
+      if (y > H - 40) { doc.addPage(); y = 22; }
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.setTextColor(...PDF.navy);
+      doc.text(label, M, y);
+      const labelW = doc.getTextWidth(label);
+      if (count != null) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(9);
+        doc.setTextColor(...PDF.muted);
+        doc.text('(' + count + ')', M + labelW + 2, y);
+      }
+      doc.setFillColor(...PDF.accent);
+      doc.rect(M, y + 1.8, 18, 0.8, 'F');
+      y += 5;
+    };
+
+    const emptyNote = (text) => {
+      doc.setFillColor(...PDF.zebra);
+      doc.roundedRect(M, y, W - 2 * M, 12, 1.5, 1.5, 'F');
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(9.5);
+      doc.setTextColor(...PDF.muted);
+      doc.text(text, W / 2, y + 7.3, { align: 'center' });
+      y += 20;
+    };
+
+    // Small running header on pages 2+
+    const runningHeader = () => {
+      if (doc.internal.getCurrentPageInfo().pageNumber === 1) return;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(...PDF.navy);
+      doc.text('Task Manager', M, 10);
+      const brandW = doc.getTextWidth('Task Manager');
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(...PDF.muted);
+      doc.text(pdfText('|  ' + (p.name || 'Project') + '  |  Project Task Report'), M + brandW + 2, 10);
+      doc.setDrawColor(...PDF.line);
+      doc.setLineWidth(0.3);
+      doc.line(M, 12.5, W - M, 12.5);
+    };
+
+    const tableBase = {
+      theme: 'grid',
+      margin: { left: M, right: M, top: 18, bottom: 16 },
+      styles: { font: 'helvetica', fontSize: 8.3, cellPadding: { top: 1.8, right: 2, bottom: 1.8, left: 2 }, textColor: PDF.text, lineColor: PDF.line, lineWidth: 0.2, valign: 'top', overflow: 'linebreak' },
+      headStyles: { fillColor: PDF.navy, textColor: PDF.white, fontStyle: 'bold', fontSize: 8.3, valign: 'middle' },
+      alternateRowStyles: { fillColor: PDF.zebra },
+      rowPageBreak: 'avoid',
+      showHead: 'everyPage',
+      didDrawPage: runningHeader,
+    };
+
+    // Tasks table
+    sectionTitle('Tasks', r.taskRows.length);
+    if (!r.taskRows.length) {
+      emptyNote('No tasks in this project yet.');
+    } else {
+      doc.autoTable(Object.assign({}, tableBase, {
+        startY: y,
+        head: [['#', 'Task', 'Notes', 'Status', 'Priority', 'Due date', 'Created by', 'QA result', 'Files']],
+        body: r.taskRows.map((t) => [
+          String(t.no),
+          pdfText(t.title),
+          pdfText(t.notes),
+          t.status,
+          t.priority,
+          t.dueDate ? formatDue(t.dueDate) : '',
+          pdfText(t.createdBy) + (t.createdAt ? '\n' + formatFullDate(t.createdAt) : ''),
+          t.qaResult ? (t.qaResult + (t.qaBy ? '\n' + pdfText(t.qaBy) : '') + (t.qaAt ? '\n' + formatFullDate(t.qaAt) : '')) : '',
+          t.files ? String(t.files) : '',
+        ]),
+        columnStyles: {
+          0: { cellWidth: 8, halign: 'center', textColor: PDF.muted },
+          1: { cellWidth: 52, fontStyle: 'bold' },
+          2: { cellWidth: 'auto', textColor: [70, 78, 94], fontSize: 7.8 },
+          3: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },
+          4: { cellWidth: 17, halign: 'center', fontStyle: 'bold' },
+          5: { cellWidth: 29 },
+          6: { cellWidth: 33 },
+          7: { cellWidth: 33 },
+          8: { cellWidth: 11, halign: 'center' },
+        },
+        didParseCell: (data) => {
+          if (data.section !== 'body') return;
+          const t = r.taskRows[data.row.index];
+          if (!t) return;
+          if (data.column.index === 3 && PDF.status[t.statusKey]) {
+            data.cell.styles.fillColor = PDF.status[t.statusKey].fill;
+            data.cell.styles.textColor = PDF.status[t.statusKey].text;
+          }
+          if (data.column.index === 4 && PDF.priority[t.priorityKey]) data.cell.styles.textColor = PDF.priority[t.priorityKey];
+          if (data.column.index === 5 && t.dueDate && t.dueDate < todayISO() && t.statusKey === 'pending') {
+            data.cell.styles.textColor = PDF.priority.high;
+            data.cell.styles.fontStyle = 'bold';
+          }
+          if (data.column.index === 7) {
+            if (t.qaKey && PDF[t.qaKey]) {
+              data.cell.styles.fillColor = PDF[t.qaKey].fill;
+              data.cell.styles.textColor = PDF[t.qaKey].text;
+            } else if (t.qaResult) {
+              data.cell.styles.textColor = PDF.muted;
+              data.cell.styles.fontStyle = 'italic';
+            }
+          }
+        },
+      }));
+      y = doc.lastAutoTable.finalY + 10;
+    }
+
+    // QA history
+    sectionTitle('QA history', r.qaRows.length);
+    if (!r.qaRows.length) {
+      emptyNote('No QA checks logged for this project yet.');
+    } else {
+      doc.autoTable(Object.assign({}, tableBase, {
+        startY: y,
+        head: [['Task #', 'Task', 'Result', 'Tester', 'Date tested', 'Notes', 'Files']],
+        body: r.qaRows.map((q) => [
+          String(q.taskNo || ''),
+          pdfText(q.task) + (q.attempt != null ? '\nAttempt #' + q.attempt : ''),
+          q.result,
+          pdfText(q.tester),
+          exportDateTimeText(q.checkedAt),
+          pdfText(q.notes),
+          q.files ? String(q.files) : '',
+        ]),
+        columnStyles: {
+          0: { cellWidth: 13, halign: 'center', textColor: PDF.muted },
+          1: { cellWidth: 60, fontStyle: 'bold' },
+          2: { cellWidth: 17, halign: 'center', fontStyle: 'bold' },
+          3: { cellWidth: 36 },
+          4: { cellWidth: 47 },
+          5: { cellWidth: 'auto', fontSize: 7.8 },
+          6: { cellWidth: 11, halign: 'center' },
+        },
+        didParseCell: (data) => {
+          if (data.section !== 'body' || data.column.index !== 2) return;
+          const q = r.qaRows[data.row.index];
+          if (q && PDF[q.resultKey]) {
+            data.cell.styles.fillColor = PDF[q.resultKey].fill;
+            data.cell.styles.textColor = PDF[q.resultKey].text;
+          }
+        },
+      }));
+      y = doc.lastAutoTable.finalY + 10;
+    }
+
+    // Attachments (names only; links expire)
+    if (r.attachRows.length) {
+      sectionTitle('Attachments', r.attachRows.length);
+      doc.autoTable(Object.assign({}, tableBase, {
+        startY: y,
+        head: [['File name', 'Attached to', 'Task', 'Attached by', 'Date attached', 'Type', 'Size']],
+        body: r.attachRows.map((a) => [
+          pdfText(a.fileName),
+          a.source,
+          (a.taskNo ? '#' + a.taskNo + '  ' : '') + pdfText(a.task),
+          pdfText(a.by),
+          exportDateTimeText(a.at),
+          a.type,
+          formatFileSize(a.size),
+        ]),
+        columnStyles: {
+          0: { cellWidth: 62 },
+          1: { cellWidth: 28 },
+          2: { cellWidth: 'auto' },
+          3: { cellWidth: 36 },
+          4: { cellWidth: 47 },
+          5: { cellWidth: 22 },
+          6: { cellWidth: 16, halign: 'right' },
+        },
+      }));
+      y = doc.lastAutoTable.finalY + 10;
+    }
+
+    // Footer: page X of Y on every page
+    const pages = doc.getNumberOfPages();
+    for (let i = 1; i <= pages; i++) {
+      doc.setPage(i);
+      doc.setDrawColor(...PDF.line);
+      doc.setLineWidth(0.3);
+      doc.line(M, H - 10, W - M, H - 10);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(...PDF.muted);
+      doc.text(pdfText('Task Manager  |  ' + exportedLine), M, H - 6);
+      doc.text('Page ' + i + ' of ' + pages, W - M, H - 6, { align: 'right' });
+    }
+    return doc.output('blob');
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+
+  function setExportButtonsBusy(projectId, busy, format) {
+    document.querySelectorAll('[data-export-project="' + projectId + '"]').forEach((btn) => {
+      btn.disabled = !!busy;
+      btn.classList.toggle('is-busy', !!busy && btn.getAttribute('data-export-format') === format);
+    });
+  }
+
+  async function exportProject(projectId, format) {
+    const fmt = format === 'pdf' ? 'pdf' : 'xlsx';
+    const key = projectId + ':' + fmt;
+    if (exportInFlight.has(key)) return;
+    closeExportMenu();
+    const project = getProject(projectId);
+    if (!project) { exportToast('Project not found. Refresh and try again.', 'error'); return; }
+    const label = fmt === 'pdf' ? 'PDF' : 'Excel';
+    exportInFlight.add(key);
+    setExportButtonsBusy(projectId, true, fmt);
+    const prevSync = { state: syncState, message: syncMessage };
+    try {
+      exportToast('Preparing ' + label + ' report for "' + project.name + '"…', 'busy');
+      setSync('syncing', 'Exporting ' + label + '…');
+      const report = buildProjectReport(projectId);
+      const blob = fmt === 'pdf' ? await buildProjectPdf(report) : await buildProjectXlsx(report);
+      const filename = exportFileName(project.name, fmt);
+      downloadBlob(blob, filename);
+      setSync(prevSync.state === 'error' ? 'connected' : prevSync.state, prevSync.state === 'error' ? 'Connected' : prevSync.message);
+      exportToast(label + ' report downloaded: ' + filename, 'success');
+      void writeAudit({
+        action: 'project.export',
+        entityType: 'project',
+        entityId: project.id,
+        entityLabel: project.name,
+        details: { format: fmt === 'pdf' ? 'PDF' : 'Excel (.xlsx)', count: report.taskRows.length, fileName: filename },
+      });
+    } catch (err) {
+      console.error('Export failed:', err);
+      setSync(prevSync.state, prevSync.message);
+      exportToast(label + ' export failed: ' + (err && err.message ? err.message : 'unknown error'), 'error');
+    } finally {
+      exportInFlight.delete(key);
+      setExportButtonsBusy(projectId, false, fmt);
+    }
+  }
+
+  // Project card export menu (small popover anchored to the ⤓ button)
+  function closeExportMenu() {
+    const m = document.getElementById('export-menu');
+    if (m) m.remove();
+    document.removeEventListener('click', onExportMenuOutside, true);
+    document.removeEventListener('keydown', onExportMenuKey, true);
+  }
+
+  function onExportMenuOutside(e) {
+    const m = document.getElementById('export-menu');
+    if (m && !m.contains(e.target) && !e.target.closest('[data-action="export-menu"]')) closeExportMenu();
+  }
+
+  function onExportMenuKey(e) {
+    if (e.key === 'Escape') closeExportMenu();
+  }
+
+  function openExportMenu(anchor, projectId) {
+    const existing = document.getElementById('export-menu');
+    if (existing && existing.dataset.projectId === projectId) { closeExportMenu(); return; }
+    closeExportMenu();
+    const p = getProject(projectId);
+    if (!p) return;
+    const m = document.createElement('div');
+    m.id = 'export-menu';
+    m.className = 'export-menu';
+    m.setAttribute('role', 'menu');
+    m.dataset.projectId = projectId;
+    m.innerHTML = `
+      <div class="export-menu-title">Export “${escapeHtml(p.name)}”</div>
+      <button type="button" role="menuitem" data-export-project="${p.id}" data-export-format="xlsx"><span class="ico xl">XLS</span><span><strong>Excel workbook</strong><small>Summary, Tasks, QA History, Attachments</small></span></button>
+      <button type="button" role="menuitem" data-export-project="${p.id}" data-export-format="pdf"><span class="ico pdf">PDF</span><span><strong>PDF report</strong><small>Printable A4 report with progress</small></span></button>
+    `;
+    document.body.appendChild(m);
+    const r = anchor.getBoundingClientRect();
+    const mw = m.offsetWidth;
+    const left = Math.min(Math.max(8, r.right - mw), window.innerWidth - mw - 8);
+    let top = r.bottom + 6;
+    if (top + m.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - m.offsetHeight - 6);
+    m.style.left = left + 'px';
+    m.style.top = top + 'px';
+    m.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-export-format]');
+      if (!b) return;
+      e.stopPropagation();
+      exportProject(b.getAttribute('data-export-project'), b.getAttribute('data-export-format'));
+    });
+    setTimeout(() => {
+      document.addEventListener('click', onExportMenuOutside, true);
+      document.addEventListener('keydown', onExportMenuKey, true);
+    }, 0);
+    m.querySelector('button')?.focus();
+  }
+
+  window.addEventListener('resize', closeExportMenu);
+
+
   // ── Render ──
   let taskFilter = 'all';
 
@@ -6656,6 +7812,7 @@
             <span style="width:${stats.pctDone}%"></span>
           </div>
           <div class="project-actions">
+            <button type="button" class="btn-icon" data-action="export-menu" data-id="${p.id}" title="Export report (Excel / PDF)" aria-label="Export project report" aria-haspopup="menu">⤓</button>
             <button type="button" class="btn-icon" data-action="edit-project" data-id="${p.id}" title="Rename / edit" aria-label="Edit project">✎</button>
             <button type="button" class="btn-icon danger" data-action="delete-project" data-id="${p.id}" title="Delete project" aria-label="Delete project">✕</button>
           </div>
@@ -6749,9 +7906,14 @@
           <h2>${escapeHtml(project.name)}${project.groupId && groupName(project.groupId) ? ' <span class="group-chip">' + escapeHtml(groupName(project.groupId)) + '</span>' : ''}</h2>
           <p class="desc">${project.description ? escapeHtml(project.description) : '<span style="color:var(--text-dim)">No description</span>'}</p>
           ${factsHtml}
-          <p style="margin-top:0.5rem">
+          <div class="project-status-row">
             <span class="badge ${project.status}">${STATUS_LABELS[project.status] || project.status}</span>
-          </p>
+            <div class="export-bar" role="group" aria-label="Export this project">
+              <span class="export-label">Export</span>
+              <button type="button" class="btn btn-ghost btn-sm export-btn" data-action="export-project" data-id="${project.id}" data-export-project="${project.id}" data-export-format="xlsx" title="Download an Excel workbook: Summary, Tasks, QA History, Attachments"><span class="ico xl" aria-hidden="true">XLS</span>Excel</button>
+              <button type="button" class="btn btn-ghost btn-sm export-btn" data-action="export-project" data-id="${project.id}" data-export-project="${project.id}" data-export-format="pdf" title="Download a printable PDF report"><span class="ico pdf" aria-hidden="true">PDF</span>PDF</button>
+            </div>
+          </div>
         </div>
         ${progressHtml}
       </div>
@@ -6926,6 +8088,7 @@
       e.stopPropagation();
       const action = actionBtn.getAttribute('data-action');
       const id = actionBtn.getAttribute('data-id');
+      if (action === 'export-menu') openExportMenu(actionBtn, id);
       if (action === 'edit-project') editProject(id);
       if (action === 'delete-project') deleteProject(id);
       return;
@@ -6954,6 +8117,7 @@
     if (action === 'qa-task') openQaModal(id);
     if (action === 'edit-task') editTask(id);
     if (action === 'delete-task') deleteTask(id);
+    if (action === 'export-project') exportProject(id, btn.getAttribute('data-export-format'));
   });
 
   document.getElementById('lineup-list').addEventListener('click', (e) => {
