@@ -1035,6 +1035,55 @@
       word-break: break-word;
     }
 
+    .task-notes.is-clamped:not(.is-expanded) {
+      display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+    }
+    .notes-toggle {
+      background: none; border: 0; padding: 0.15rem 0; margin-top: 0.15rem;
+      color: var(--accent, #7c9cff); font-size: 0.72rem; cursor: pointer;
+    }
+    .notes-toggle:hover { text-decoration: underline; }
+    .badge.pending { background: rgba(148,163,184,0.15); color: #cbd5e1; }
+    .due-date.due-none { color: var(--text-dim); font-style: italic; }
+    .tc-info {
+      margin-top: 0.5rem; padding: 0.45rem 0.6rem;
+      border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 8px;
+      background: rgba(255,255,255,0.025);
+      font-size: 0.72rem; color: var(--text-dim); line-height: 1.5;
+    }
+    .tc-info .who-name, .tc-qa .who-name, .tc-atts .who-name { color: var(--text-muted); font-weight: 550; }
+    .tc-info:empty { display: none; }
+    .tc-qa {
+      display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem;
+      margin-top: 0.4rem; font-size: 0.72rem; color: var(--text-dim);
+    }
+    .tc-dim { color: var(--text-dim); font-size: 0.7rem; }
+    .tc-atts { margin-top: 0.5rem; }
+    .tc-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-dim); margin-bottom: 0.25rem; font-weight: 600; }
+    .tc-att-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+    .tc-att-list li {
+      display: grid; grid-template-columns: 34px minmax(0,1fr) auto; gap: 0.55rem; align-items: center;
+      padding: 0.35rem 0.45rem; border-radius: 8px;
+      border: 1px solid var(--border, rgba(255,255,255,0.08)); background: rgba(255,255,255,0.02);
+    }
+    .tc-atts:not(.show-all) .tc-extra { display: none; }
+    .tc-thumb {
+      width: 34px; height: 34px; border-radius: 6px; object-fit: cover; cursor: pointer;
+      background: rgba(255,255,255,0.06);
+    }
+    .tc-ico { display: inline-flex; align-items: center; justify-content: center; font-size: 0.58rem; font-weight: 700; color: var(--text-muted); letter-spacing: 0.03em; }
+    .tc-att-meta { min-width: 0; line-height: 1.35; }
+    .tc-att-name { display: block; font-size: 0.78rem; color: var(--text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tc-att-name:hover { text-decoration: underline; }
+    @media (max-width: 720px) {
+      .task-list > .task-card { grid-template-columns: auto minmax(0,1fr) !important; padding: 0.75rem 0.8rem; gap: 0.5rem 0.6rem; }
+      .task-list > .task-card > .task-actions { grid-column: 2 !important; grid-row: 1; justify-self: end; opacity: 1; }
+      .task-list > .task-card > .task-body { grid-column: 1 / -1 !important; grid-row: 2; }
+      .tc-att-list li { grid-template-columns: 30px minmax(0,1fr); }
+      .tc-att-list li .btn-attach-view { grid-column: 2; justify-self: start; }
+      .tc-thumb { width: 30px; height: 30px; }
+    }
+
     .task-meta {
       display: flex;
       flex-wrap: wrap;
@@ -2986,6 +3035,16 @@
     return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   }
 
+  /** Timestamp → "October 5, 2026 · 11:47 AM" (attachments / QA) */
+  function formatFullDateTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const date = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const time = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return date + ' · ' + time;
+  }
+
   /** Was the row edited after creation (ignores the create-time updated_at)? */
   function wasUpdated(obj) {
     return !!cleanName(obj.updatedByName) || !!obj.updatedBy;
@@ -3531,7 +3590,7 @@
     }
     wrapEl.innerHTML = '<ul class="attachments-list" role="list">' + list.map((a) => {
       const size = formatFileSize(a.sizeBytes);
-      const when = formatAuditTime(a.createdAt);
+      const when = formatFullDateTime(a.createdAt);
       const sub = [size, when].filter(Boolean).join(' · ');
       const attachedBy = whoName(a.uploadedByName, a.uploadedBy) || 'Unknown';
       const thumb = isImageAttachment(a)
@@ -3861,7 +3920,7 @@
     }
     wrapEl.innerHTML = '<ul class="attachments-list" role="list">' + list.map((a) => {
       const size = formatFileSize(a.sizeBytes);
-      const when = formatAuditTime(a.createdAt);
+      const when = formatFullDateTime(a.createdAt);
       const sub = [size, when].filter(Boolean).join(' · ');
       const attachedBy = whoName(a.uploadedByName, a.uploadedBy) || 'Unknown';
       const thumb = isImageAttachment(a)
@@ -4091,7 +4150,7 @@
     }
     const cls = latest.result === 'pass' ? 'pass' : 'fail';
     const label = latest.result === 'pass' ? 'Pass' : 'Fail';
-    const when = formatAuditTime(latest.checkedAt);
+    const when = formatFullDateTime(latest.checkedAt);
     const who = whoName(latest.testerName, latest.testerId) || 'Unknown';
     const title = escapeHtml("QA'd by " + who + (when ? ' · ' + when : ''));
     return '<span class="qa-badge ' + cls + '" title="' + title + '">QA: ' + label + '</span>';
@@ -4154,7 +4213,7 @@
         + '</div>';
       return '<li data-qa-history-id="' + escapeHtml(c.id) + '">'
         + '<div class="qa-h-top"><span style="font-size:0.72rem;color:var(--text-dim)">Attempt ' + n + '</span> ' + badge + countBadge + '</div>'
-        + '<div class="qa-h-meta">QA\'d by <span class="who-name">' + escapeHtml(whoName(c.testerName, c.testerId) || 'Unknown') + '</span> · ' + escapeHtml(formatAuditTime(c.checkedAt)) + '</div>'
+        + '<div class="qa-h-meta">QA\'d by <span class="who-name">' + escapeHtml(whoName(c.testerName, c.testerId) || 'Unknown') + '</span> · ' + escapeHtml(formatFullDateTime(c.checkedAt)) + '</div>'
         + notes
         + attachPanel
         + '</li>';
@@ -7946,6 +8005,7 @@
     `;
 
     renderProgressCard(document.getElementById('project-progress'), stats, 'This project');
+    hydrateCardThumbs(main);
 
     document.getElementById('btn-add-task')?.addEventListener('click', () => addTask(project.id));
     document.getElementById('empty-add-task')?.addEventListener('click', () => addTask(project.id));
@@ -7970,10 +8030,99 @@
     });
   }
 
+  const CARD_ATTACH_LIMIT = 3;
+  function attachIconFor(a) {
+    const ext = attachFileExt(a.fileName);
+    if (ext === 'pdf') return 'PDF';
+    if (ext === 'xlsx' || ext === 'xls' || ext === 'csv') return 'XLS';
+    if (ext === 'doc' || ext === 'docx') return 'DOC';
+    if (ext === 'txt') return 'TXT';
+    return 'FILE';
+  }
+
+  function taskCardDetailsHtml(t) {
+    const parts = [];
+    if (!userTrackingMissing) {
+      const c = createdByHtml(t), u = updatedByHtml(t);
+      parts.push(`<div class="tc-info">${c ? `<div>${c}</div>` : ''}${u ? `<div>${u}</div>` : ''}</div>`);
+    }
+    const latest = latestQa(t.id);
+    if (latest) {
+      const pass = latest.result === 'pass';
+      const who = whoName(latest.testerName, latest.testerId) || 'Unknown';
+      const n = qaForTask(t.id).length;
+      parts.push(`<div class="tc-qa ${pass ? 'pass' : 'fail'}">
+        <span class="qa-badge ${pass ? 'pass' : 'fail'}">QA: ${pass ? 'Pass' : 'Fail'}</span>
+        <span>QA'd by <span class="who-name">${escapeHtml(who)}</span>${latest.checkedAt ? ' · ' + escapeHtml(formatFullDateTime(latest.checkedAt)) : ''}</span>
+        ${n > 1 ? `<span class="tc-dim">(${n} checks)</span>` : ''}
+      </div>`);
+    } else if (t.status === 'done') {
+      parts.push(`<div class="tc-qa none"><span class="qa-badge none">QA: Not tested</span><span class="tc-dim">Awaiting QA</span></div>`);
+    }
+    const atts = attachmentsForTask(t.id);
+    if (atts.length) {
+      const rows = atts.map((a, i) => {
+        const size = formatFileSize(a.sizeBytes);
+        const when = formatFullDateTime(a.createdAt);
+        const by = whoName(a.uploadedByName, a.uploadedBy) || 'Unknown';
+        const id = escapeHtml(a.id);
+        const thumb = isImageAttachment(a)
+          ? `<img class="tc-thumb" data-card-thumb="${id}" data-card-attach-open="${id}" alt="" width="34" height="34" loading="lazy" />`
+          : `<span class="tc-thumb tc-ico" data-card-attach-open="${id}" aria-hidden="true">${attachIconFor(a)}</span>`;
+        return `<li class="${i >= CARD_ATTACH_LIMIT ? 'tc-extra' : ''}">
+          ${thumb}
+          <div class="tc-att-meta">
+            <a href="#" class="tc-att-name" data-card-attach-open="${id}" title="${escapeHtml(a.fileName)}">${escapeHtml(a.fileName)}</a>
+            <div class="tc-dim">${escapeHtml([size, when].filter(Boolean).join(' · '))}</div>
+            <div class="tc-dim">Attached by <span class="who-name">${escapeHtml(by)}</span></div>
+          </div>
+          <button type="button" class="btn-attach-view" data-card-attach-open="${id}">View</button>
+        </li>`;
+      }).join('');
+      const more = atts.length - CARD_ATTACH_LIMIT;
+      parts.push(`<div class="tc-atts">
+        <div class="tc-label">Attachments (${atts.length})</div>
+        <ul class="tc-att-list" role="list">${rows}</ul>
+        ${more > 0 ? `<button type="button" class="notes-toggle" data-atts-toggle data-more="${more}">+${more} more</button>` : ''}
+      </div>`);
+    }
+    return parts.join('');
+  }
+
+  /** Lazy-load signed URLs for image thumbs on cards as they scroll into view. */
+  let cardThumbObserver = null;
+  function hydrateCardThumbs(root) {
+    const imgs = (root || document).querySelectorAll('img[data-card-thumb]:not([data-loaded])');
+    if (!imgs.length) return;
+    const load = (img) => {
+      if (img.dataset.loaded) return;
+      img.dataset.loaded = '1';
+      const att = taskAttachments.find((x) => x.id === img.getAttribute('data-card-thumb'));
+      if (!att) return;
+      createAttachmentSignedUrl(att.filePath, 600).then((url) => {
+        if (url && img.isConnected) img.src = url;
+      }).catch(() => {});
+    };
+    if (!('IntersectionObserver' in window)) { imgs.forEach(load); return; }
+    if (!cardThumbObserver) {
+      cardThumbObserver = new IntersectionObserver((entries) => {
+        entries.forEach((en) => {
+          if (en.isIntersecting) {
+            cardThumbObserver.unobserve(en.target);
+            load(en.target);
+          }
+        });
+      }, { rootMargin: '200px' });
+    }
+    imgs.forEach((img) => cardThumbObserver.observe(img));
+  }
+
   function renderTaskCard(t) {
-    const due = t.dueDate
-      ? `<span class="due-date ${dueClass(t.dueDate)}" title="Due date">Due ${formatDue(t.dueDate)}</span>`
-      : '';
+    const isOpen = t.status === 'pending' || !t.status;
+    const dc = t.dueDate ? dueClass(t.dueDate) : '';
+    const dueHtml = t.dueDate
+      ? `<span class="due-date ${isOpen ? dc : ''}" title="Due date">📅 Due ${formatDue(t.dueDate)}${isOpen && dc === 'overdue' ? ' · Overdue' : ''}</span>`
+      : '<span class="due-date due-none">No due date</span>';
     const statusBadge = t.status === 'hold'
       ? `<span class="badge on-hold" title="On hold">${TASK_STATUS_LABELS.hold}</span>`
       : (t.status === 'completed'
@@ -8002,15 +8151,14 @@
         </button>
         <div class="task-body">
           <div class="task-title">${escapeHtml(t.title)}</div>
-          ${t.notes ? `<div class="task-notes">${escapeHtml(t.notes)}</div>` : ''}
+          ${t.notes ? `<div class="task-notes${t.notes.length > 280 || (t.notes.match(/\n/g) || []).length > 4 ? ' is-clamped' : ''}">${escapeHtml(t.notes)}</div>${t.notes.length > 280 || (t.notes.match(/\n/g) || []).length > 4 ? `<button type="button" class="notes-toggle" data-notes-toggle>Show more</button>` : ''}` : ''}
           <div class="task-meta">
+            ${statusBadge || '<span class="badge pending" title="Pending">Pending</span>'}
             <span class="priority-badge ${t.priority}">${t.priority}</span>
-            ${statusBadge}
-            ${qaBadge}
             ${attachBadgeHtml(t.id)}
-            ${due}
+            ${dueHtml}
           </div>
-          ${userTrackingMissing ? '' : `<div class="who-line">${createdByHtml(t)}${updatedByHtml(t)}</div>`}
+          ${taskCardDetailsHtml(t)}
         </div>
         <div class="task-actions">
           ${(t.status === 'done' || qaForTask(t.id).length > 0)
@@ -8108,6 +8256,33 @@
   });
 
   document.getElementById('main').addEventListener('click', (e) => {
+    const openEl = e.target.closest('[data-card-attach-open]');
+    if (openEl) {
+      e.preventDefault();
+      const att = taskAttachments.find((x) => x.id === openEl.getAttribute('data-card-attach-open'));
+      if (att) openAttachment(att);
+      return;
+    }
+    const notesT = e.target.closest('[data-notes-toggle]');
+    if (notesT) {
+      const n = notesT.previousElementSibling;
+      const open = n.classList.toggle('is-expanded');
+      notesT.textContent = open ? 'Show less' : 'Show more';
+      return;
+    }
+    const attT = e.target.closest('[data-atts-toggle]');
+    if (attT) {
+      const box = attT.closest('.tc-atts');
+      const open = box.classList.toggle('show-all');
+      attT.textContent = open ? 'Show less' : '+' + attT.getAttribute('data-more') + ' more';
+      if (open) box.querySelectorAll('.tc-extra img[data-card-thumb]').forEach((img) => {
+        if (cardThumbObserver) cardThumbObserver.unobserve(img);
+        delete img.dataset.loaded;
+        img.removeAttribute('data-loaded');
+      });
+      if (open) hydrateCardThumbs(box);
+      return;
+    }
     const btn = e.target.closest('[data-action]');
     if (!btn) return;
     const action = btn.getAttribute('data-action');
