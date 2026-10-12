@@ -1038,6 +1038,15 @@
     .task-notes.is-clamped:not(.is-expanded) {
       display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
     }
+    .btn-copy { position: relative; }
+    .btn-copy.is-copied { color: var(--success); }
+    .btn-copy[data-tip]:not([data-tip=""])::after {
+      content: attr(data-tip); position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+      background: #10141c; color: #e6edf7; border: 1px solid var(--border); border-radius: 6px;
+      padding: 0.2rem 0.45rem; font-size: 0.68rem; white-space: nowrap; pointer-events: none; z-index: 5;
+    }
+    .modal-copy-btn { position: absolute; top: 1rem; right: 1.1rem; }
+    #modal { position: relative; }
     .notes-toggle {
       background: none; border: 0; padding: 0.15rem 0; margin-top: 0.15rem;
       color: var(--accent, #7c9cff); font-size: 0.72rem; cursor: pointer;
@@ -2064,6 +2073,7 @@
     }
     .ico.xl { background: #1d7a46; }
     .ico.pdf { background: #c62f3a; }
+    .ico.zip { background: #7a5af8; }
     .export-menu {
       position: fixed;
       z-index: 2000;
@@ -6352,7 +6362,26 @@
       title: 'Edit task',
       fields: taskFields(t),
       wide: true,
-      afterOpen() { bindAttachmentsPanel(t.id); },
+      afterOpen() {
+        bindAttachmentsPanel(t.id);
+        const h = document.getElementById('modal-title');
+        if (h && !document.getElementById('modal-copy-btn')) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.id = 'modal-copy-btn';
+          b.className = 'btn btn-ghost btn-sm modal-copy-btn';
+          b.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy';
+          b.title = 'Copy title, issue & due date';
+          b.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const f = document.getElementById('modal-form');
+            const el = (n) => (f && f.elements[n] ? f.elements[n].value : '');
+            const v = { title: el('title') || t.title, notes: el('notes'), dueDate: el('dueDate'), status: el('status') || t.status, priority: el('priority') || t.priority };
+            flashCopied(b, await copyTextToClipboard(taskCopyText(v)));
+          });
+          h.insertAdjacentElement('afterend', b);
+        }
+      },
       onSubmit(data) {
         const prev = { ...t };
         const wasPending = t.status === 'pending';
@@ -6559,6 +6588,7 @@
     const form = document.getElementById('modal-form');
     const modalEl = document.getElementById('modal');
     document.getElementById('modal-title').textContent = title;
+    document.getElementById('modal-copy-btn')?.remove();
     if (modalEl) {
       if (wide) modalEl.classList.add('modal-wide');
       else modalEl.classList.remove('modal-wide');
@@ -6740,8 +6770,151 @@
       'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js',
       'https://unpkg.com/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js',
     ],
+    jszip: [
+      'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
+      'https://unpkg.com/jszip@3.10.1/dist/jszip.min.js',
+    ],
   };
   const exportInFlight = new Set();
+
+  async function ensureJsZip() {
+    await loadFirstExportLib(EXPORT_LIBS.jszip, () => typeof window.JSZip === 'function', 'ZIP export (JSZip)');
+    return window.JSZip;
+  }
+
+  /** Download one stored attachment's bytes via a fresh signed URL. */
+  async function fetchAttachmentBlob(att) {
+    const url = await createAttachmentSignedUrl(att.filePath, 600);
+    if (!url) throw new Error('no signed URL');
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return await res.blob();
+  }
+
+  /** Blob → downscaled JPEG data URL for the PDF (max 480px). */
+  function imageBlobToThumb(blob, max) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      img.onload = () => {
+        try {
+          const m = max || 480;
+          const k = Math.min(1, m / Math.max(img.naturalWidth, img.naturalHeight));
+          const w = Math.max(1, Math.round(img.naturalWidth * k)), h = Math.max(1, Math.round(img.naturalHeight * k));
+          const c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, w, h);
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve({ dataUrl: c.toDataURL('image/jpeg', 0.82), w, h });
+        } catch (e) { reject(e); } finally { URL.revokeObjectURL(url); }
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('not a readable image')); };
+      img.src = url;
+    });
+  }
+
+  const PDF_THUMB_MAX_TOTAL = 40, PDF_THUMB_MAX_PER_TASK = 4, PDF_THUMB_MAX_BYTES = 8 * 1024 * 1024;
+
+  /** Prefetch image thumbnails for the PDF detail section (capped, failures noted). */
+  async function loadReportThumbs(r, blobCache, onProgress) {
+    r.thumbs = new Map();
+    r.thumbFailures = new Set();
+    const jobs = [];
+    r.taskRows.forEach((t) => {
+      t.attachments.filter(isImageAttachment).slice(0, PDF_THUMB_MAX_PER_TASK).forEach((a) => {
+        if (jobs.length < PDF_THUMB_MAX_TOTAL && (a.sizeBytes == null || a.sizeBytes <= PDF_THUMB_MAX_BYTES)) jobs.push(a);
+      });
+    });
+    let done = 0;
+    const worker = async () => {
+      while (jobs.length) {
+        const a = jobs.shift();
+        try {
+          let blob = blobCache && blobCache.get(a.id);
+          if (!blob) { blob = await fetchAttachmentBlob(a); if (blobCache) blobCache.set(a.id, blob); }
+          r.thumbs.set(a.id, await imageBlobToThumb(blob));
+        } catch (e) {
+          console.warn('PDF thumbnail skipped for', a.fileName, e);
+          r.thumbFailures.add(a.id);
+        }
+        done++;
+        if (onProgress) onProgress(done);
+      }
+    };
+    await Promise.all([worker(), worker(), worker()]);
+  }
+
+  function zipSafeName(name, fallback) {
+    let n = String(name || '').replace(/[\\/:*?"<>|\u0000-\u001f]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/^[.\s]+|[.\s]+$/g, '');
+    if (!n) n = fallback || 'file';
+    if (n.length > 90) {
+      const m = n.match(/(\.[A-Za-z0-9]{1,6})$/);
+      n = m ? n.slice(0, 90 - m[1].length).trim() + m[1] : n.slice(0, 90).trim();
+    }
+    return n;
+  }
+
+  function zipUniqueName(used, name) {
+    if (!used.has(name.toLowerCase())) { used.add(name.toLowerCase()); return name; }
+    const m = name.match(/^(.*?)(\.[^.]*)?$/);
+    for (let i = 2; ; i++) {
+      const c = m[1] + ' (' + i + ')' + (m[2] || '');
+      if (!used.has(c.toLowerCase())) { used.add(c.toLowerCase()); return c; }
+    }
+  }
+
+  async function buildProjectZip(r, project) {
+    const JSZip = await ensureJsZip();
+    const zip = new JSZip();
+    const zNow = xlLocal(new Date());
+    const blobCache = new Map();
+    const files = [];
+    r.taskRows.forEach((t) => {
+      const folder = 'attachments/' + zipSafeName(t.no + ' - ' + t.title, t.no + ' - Task');
+      t.attachments.forEach((a) => files.push({ a, folder, task: t }));
+      t.qaChecks.forEach(({ check: c, files: qf }) => {
+        const tag = 'QA/' + zipSafeName((c.attemptNo != null ? 'Attempt ' + c.attemptNo + ' - ' : '') + (c.result === 'pass' ? 'Pass' : 'Fail'), 'Check');
+        qf.forEach((a) => files.push({ a, folder: folder + '/' + tag, task: t, qa: c }));
+      });
+    });
+    const N = files.length;
+    const missing = [];
+    const usedByFolder = new Map();
+    let n = 0;
+    exportToast(N ? 'Downloading attached files… 0 of ' + N : 'Building ZIP…', 'busy');
+    const queue = files.slice();
+    const worker = async () => {
+      while (queue.length) {
+        const f = queue.shift();
+        try {
+          const blob = await fetchAttachmentBlob(f.a);
+          blobCache.set(f.a.id, blob);
+          if (!usedByFolder.has(f.folder)) usedByFolder.set(f.folder, new Set());
+          const fname = zipUniqueName(usedByFolder.get(f.folder), zipSafeName(f.a.fileName, 'file'));
+          zip.file(f.folder + '/' + fname, blob, { date: xlLocal(f.a.createdAt || new Date()) });
+        } catch (e) {
+          missing.push('#' + f.task.no + ' ' + f.task.title + (f.qa ? ' [QA]' : '') + '  ->  ' + f.a.fileName + '  (' + (e && e.message ? e.message : 'error') + ')');
+        }
+        n++;
+        exportToast('Downloading attached files… ' + n + ' of ' + N + (missing.length ? ' (' + missing.length + ' failed)' : ''), 'busy');
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    exportToast('Building Excel and PDF reports…', 'busy');
+    await loadReportThumbs(r, blobCache);
+    const xlsx = await buildProjectXlsx(r);
+    const pdf = await buildProjectPdf(r);
+    zip.file(exportFileName(project.name, 'xlsx'), xlsx, { date: zNow });
+    zip.file(exportFileName(project.name, 'pdf'), pdf, { date: zNow });
+    if (!N) zip.file('attachments/README.txt', 'This project has no attached files.\r\n', { date: zNow });
+    if (missing.length) {
+      zip.file('missing-files.txt', 'These files could not be downloaded when the ZIP was built (' + exportDateTimeText(new Date()) + '):\r\n\r\n' + missing.join('\r\n') + '\r\n', { date: zNow });
+    }
+    exportToast('Compressing ZIP…', 'busy');
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+    return { blob, fileCount: N - missing.length, missing: missing.length };
+  }
 
   function loadExportScript(src) {
     return new Promise((resolve, reject) => {
@@ -6902,7 +7075,12 @@
         qaBy: qa ? (whoName(qa.testerName, qa.testerId) || 'Unknown') : '',
         qaAt: qa ? (qa.checkedAt || '') : '',
         qaCount: qaForTask(t.id).length,
+        qaNotes: qa ? (qa.notes || '') : '',
+        overdue: !!(t.dueDate && t.dueDate < todayISO() && t.status === 'pending'),
         files: attachmentsForTask(t.id).length,
+        attachments: attachmentsForTask(t.id),
+        attachText: attachmentsForTask(t.id).map((a) => a.fileName + ' (' + (whoName(a.uploadedByName, a.uploadedBy) || 'Unknown') + ')').join('\n'),
+        qaChecks: qaForTask(t.id).map((c) => ({ check: c, files: attachmentsForQaCheck(c.id) })),
       };
     });
 
@@ -7199,8 +7377,8 @@
     const tw = wb.addWorksheet('Tasks', { properties: { tabColor: { argb: 'FF17804C' } }, pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: '3:3' } });
     const taskCols = [
       ['#', 5], ['Title', 36], ['Notes', 48], ['Status', 13], ['Priority', 10], ['Due date', 19],
-      ['Created by', 22], ['Created date', 19], ['Last updated by', 22], ['Updated date', 19],
-      ['Latest QA', 12], ["QA'd by", 22], ['QA date', 25], ['Attachments', 12],
+      ['Overdue', 10], ['Created by', 22], ['Created date', 19], ['Last updated by', 22], ['Updated date', 19],
+      ['Latest QA', 12], ["QA'd by", 22], ['QA date', 25], ['QA notes', 40], ['QA checks', 10], ['Files', 8], ['Attached files (attached by)', 46],
     ];
     tw.columns = taskCols.map(([, w]) => ({ width: w }));
     xlTitleBlock(tw, taskCols.length, (p.name || 'Project') + ' — Tasks', subtitle);
@@ -7208,9 +7386,10 @@
     r.taskRows.forEach((t, i) => {
       const rr = tw.getRow(4 + i);
       rr.values = [
-        t.no, t.title, t.notes || null, t.status, t.priority, xlDateOnly(t.dueDate),
+        t.no, t.title, t.notes || null, t.status, t.priority, xlDateOnly(t.dueDate) || 'No due date',
+        t.overdue ? 'Yes' : (t.dueDate ? 'No' : null),
         t.createdBy, xlLocal(t.createdAt), t.updatedBy || null, xlLocal(t.updatedAt),
-        t.qaResult || null, t.qaBy || null, xlLocal(t.qaAt), t.files,
+        t.qaResult || null, t.qaBy || null, xlLocal(t.qaAt), t.qaNotes || null, t.qaCount, t.files, t.attachText || null,
       ];
     });
     xlStyleTable(tw, 3, taskCols.length, r.taskRows.length);
@@ -7220,13 +7399,16 @@
       rr.getCell(2).font = { bold: true, size: 10, color: { argb: XL.text } };
       xlPill(rr.getCell(4), XL.status[t.statusKey]);
       if (XL.priority[t.priorityKey]) rr.getCell(5).font = { bold: true, size: 10, color: { argb: XL.priority[t.priorityKey] } };
-      [6, 8, 10, 13].forEach((c) => {
-        rr.getCell(c).numFmt = c === 13 ? XL_DATETIME : XL_DATE;
+      if (!t.dueDate) rr.getCell(6).font = { italic: true, size: 10, color: { argb: XL.label } };
+      if (t.overdue) { rr.getCell(7).font = { bold: true, size: 10, color: { argb: 'FFC62F3A' } }; }
+      rr.getCell(7).alignment = { vertical: 'top', horizontal: 'center' };
+      [6, 9, 11, 14].forEach((c) => {
+        rr.getCell(c).numFmt = c === 14 ? XL_DATETIME : XL_DATE;
         rr.getCell(c).alignment = { vertical: 'top', horizontal: 'left' };
       });
-      if (t.qaKey) xlPill(rr.getCell(11), XL[t.qaKey]);
-      else if (t.qaResult) rr.getCell(11).font = { italic: true, size: 10, color: { argb: XL.label } };
-      rr.getCell(14).alignment = { vertical: 'top', horizontal: 'center' };
+      if (t.qaKey) xlPill(rr.getCell(12), XL[t.qaKey]);
+      else if (t.qaResult) rr.getCell(12).font = { italic: true, size: 10, color: { argb: XL.label } };
+      [16, 17].forEach((c) => { rr.getCell(c).alignment = { vertical: 'top', horizontal: 'center' }; });
       if (t.dueDate && t.dueDate < todayISO() && t.statusKey === 'pending') {
         rr.getCell(6).font = { bold: true, size: 10, color: { argb: 'FFC62F3A' } };
       }
@@ -7624,6 +7806,160 @@
       y = doc.lastAutoTable.finalY + 10;
     }
 
+    // Task-by-task detail section (one block per task, like the card)
+    if (r.taskRows.length) {
+      doc.addPage();
+      y = 22;
+      sectionTitle('Task details', r.taskRows.length);
+      y += 2;
+      const BW = W - 2 * M;
+      const PAD = 4;
+      const innerW = BW - 2 * PAD;
+      const LH = 4.1;
+      const thumbs = r.thumbs || new Map();
+      const failedThumbs = r.thumbFailures || new Set();
+      const kvRow = (label, value, x, w) => ({ label, value: pdfText(value), x, w });
+      r.taskRows.forEach((t) => {
+        // measure
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8.5);
+        const notes = doc.splitTextToSize(pdfText(t.notes || '-'), innerW);
+        const meta = [
+          kvRow('Due date', (t.dueDate ? formatDue(t.dueDate) : 'No due date') + (t.overdue ? '  (OVERDUE)' : ''), 0, 0),
+          kvRow('Created by', t.createdBy + (t.createdAt ? ' \u00B7 ' + exportDateTimeText(t.createdAt) : '')),
+          kvRow('Last updated by', t.updatedBy ? t.updatedBy + (t.updatedAt ? ' \u00B7 ' + exportDateTimeText(t.updatedAt) : '') : 'No edits logged'),
+          kvRow('Latest QA', t.qaResult ? (t.qaResult + (t.qaBy ? ' \u00B7 ' + t.qaBy : '') + (t.qaAt ? ' \u00B7 ' + exportDateTimeText(t.qaAt) : '')) : 'None'),
+        ];
+        const qaLines = [];
+        t.qaChecks.forEach(({ check: c, files }) => {
+          const line = (c.attemptNo != null ? '#' + c.attemptNo + '  ' : '') + (c.result === 'pass' ? 'PASS' : 'FAIL') + '  \u00B7  ' + (whoName(c.testerName, c.testerId) || 'Unknown') + '  \u00B7  ' + exportDateTimeText(c.checkedAt)
+            + (c.notes ? '  -  ' + c.notes : '') + (files.length ? '  [Files: ' + files.map((f) => f.fileName).join(', ') + ']' : '');
+          doc.splitTextToSize(pdfText(line), innerW - 4).forEach((l, i) => qaLines.push({ text: l, key: i === 0 ? c.result : null }));
+        });
+        const attLines = [];
+        t.attachments.forEach((a) => {
+          const line = a.fileName + '  \u00B7  ' + (formatFileSize(a.sizeBytes) || '-') + '  \u00B7  Attached by ' + (whoName(a.uploadedByName, a.uploadedBy) || 'Unknown') + '  \u00B7  ' + exportDateTimeText(a.createdAt)
+            + (isImageAttachment(a) && failedThumbs.has(a.id) ? '  (preview unavailable)' : '');
+          doc.splitTextToSize(pdfText(line), innerW - 4).forEach((l) => attLines.push(l));
+        });
+        const imgs = t.attachments.filter((a) => thumbs.has(a.id));
+        const THUMB = 30;
+        let h = PAD + 6 + 6 + notes.length * LH + 2 + 2 * 9 + 2;
+        if (qaLines.length) h += 5 + qaLines.length * LH + 1;
+        if (attLines.length) h += 5 + attLines.length * LH + 1;
+        if (imgs.length) h += THUMB + 7;
+        h += PAD - 2;
+        if (y + h > H - 16) { doc.addPage(); y = 20; }
+        const top = y;
+        // card frame
+        doc.setDrawColor(...PDF.line);
+        doc.setLineWidth(0.3);
+        doc.setFillColor(252, 253, 255);
+        doc.roundedRect(M, top, BW, h, 1.8, 1.8, 'FD');
+        const sc = PDF.status[t.statusKey] || PDF.status.pending;
+        doc.setFillColor(...sc.text);
+        doc.rect(M, top, 1.4, h, 'F');
+        let cy = top + PAD + 3;
+        const x0 = M + PAD;
+        // title row
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(...PDF.text);
+        const tl = doc.splitTextToSize(pdfText('#' + t.no + '  ' + t.title), innerW - 70);
+        doc.text(tl[0] + (tl.length > 1 ? '...' : ''), x0, cy);
+        // badges right
+        let bx = M + BW - PAD;
+        const badge = (label, fill, text) => {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.2);
+          const w = doc.getTextWidth(label) + 4;
+          bx -= w;
+          doc.setFillColor(...fill);
+          doc.roundedRect(bx, cy - 3.3, w, 4.6, 1.2, 1.2, 'F');
+          doc.setTextColor(...text);
+          doc.text(label, bx + 2, cy);
+          bx -= 1.5;
+        };
+        if (t.qaKey && PDF[t.qaKey]) badge('QA ' + t.qaResult.toUpperCase(), PDF[t.qaKey].fill, PDF[t.qaKey].text);
+        badge(String(t.priority).toUpperCase(), [245, 240, 240], PDF.priority[t.priorityKey] || PDF.muted);
+        badge(String(t.status).toUpperCase(), sc.fill, sc.text);
+        cy += 6;
+        // notes
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...PDF.muted);
+        doc.text('ISSUE / NOTES', x0, cy - 1.5);
+        doc.setFontSize(8.5);
+        doc.setTextColor(...(t.notes ? [55, 62, 78] : PDF.muted));
+        doc.text(notes, x0, cy + 2.4);
+        cy += notes.length * LH + 4;
+        // meta grid 2x2
+        const colW2 = innerW / 2;
+        meta.forEach((m, i) => {
+          const mx = x0 + (i % 2) * colW2;
+          const my = cy + Math.floor(i / 2) * 9;
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(7);
+          doc.setTextColor(...PDF.muted);
+          doc.text(m.label.toUpperCase(), mx, my);
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(8.5);
+          const red = i === 0 && t.overdue;
+          const qa = i === 3 && t.qaKey && PDF[t.qaKey];
+          doc.setTextColor(...(red ? PDF.priority.high : (qa ? PDF[t.qaKey].text : PDF.text)));
+          const v = doc.splitTextToSize(m.value, colW2 - 4);
+          doc.text(v[0] + (v.length > 1 ? '...' : ''), mx, my + 3.8);
+        });
+        cy += 2 * 9 + 1;
+        const subHead = (label) => {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(7.5);
+          doc.setTextColor(...PDF.navy);
+          doc.text(label, x0, cy + 2);
+          cy += 5;
+        };
+        if (qaLines.length) {
+          subHead('QA HISTORY (' + t.qaChecks.length + ')');
+          doc.setFontSize(8);
+          qaLines.forEach((l) => {
+            doc.setFont('helvetica', l.key ? 'bold' : 'normal');
+            doc.setTextColor(...(l.key && PDF[l.key] ? PDF[l.key].text : [55, 62, 78]));
+            doc.text(l.text, x0 + 2, cy + 1.6);
+            cy += LH;
+          });
+          cy += 1;
+        }
+        if (attLines.length) {
+          subHead('ATTACHMENTS (' + t.attachments.length + ')');
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(55, 62, 78);
+          attLines.forEach((l) => { doc.text(l, x0 + 2, cy + 1.6); cy += LH; });
+          cy += 1;
+        }
+        if (imgs.length) {
+          let ix = x0 + 2;
+          imgs.forEach((a) => {
+            const th = thumbs.get(a.id);
+            const ratio = th.w / th.h;
+            const iw = Math.min(THUMB * ratio, 52), ih = iw / ratio;
+            try {
+              doc.addImage(th.dataUrl, 'JPEG', ix, cy + 1, iw, ih);
+              doc.setDrawColor(...PDF.line);
+              doc.rect(ix, cy + 1, iw, ih);
+              doc.setFont('helvetica', 'normal');
+              doc.setFontSize(6.5);
+              doc.setTextColor(...PDF.muted);
+              const cap = doc.splitTextToSize(pdfText(a.fileName), iw)[0];
+              doc.text(cap, ix, cy + ih + 4);
+            } catch (e) { console.warn('thumb embed failed', e); }
+            ix += iw + 5;
+          });
+        }
+        y = top + h + 4;
+      });
+    }
+
     // Footer: page X of Y on every page
     const pages = doc.getNumberOfPages();
     for (let i = 1; i <= pages; i++) {
@@ -7660,13 +7996,13 @@
   }
 
   async function exportProject(projectId, format) {
-    const fmt = format === 'pdf' ? 'pdf' : 'xlsx';
+    const fmt = format === 'pdf' ? 'pdf' : (format === 'zip' ? 'zip' : 'xlsx');
     const key = projectId + ':' + fmt;
     if (exportInFlight.has(key)) return;
     closeExportMenu();
     const project = getProject(projectId);
     if (!project) { exportToast('Project not found. Refresh and try again.', 'error'); return; }
-    const label = fmt === 'pdf' ? 'PDF' : 'Excel';
+    const label = fmt === 'pdf' ? 'PDF' : (fmt === 'zip' ? 'ZIP (with files)' : 'Excel');
     exportInFlight.add(key);
     setExportButtonsBusy(projectId, true, fmt);
     const prevSync = { state: syncState, message: syncMessage };
@@ -7674,17 +8010,27 @@
       exportToast('Preparing ' + label + ' report for "' + project.name + '"…', 'busy');
       setSync('syncing', 'Exporting ' + label + '…');
       const report = buildProjectReport(projectId);
-      const blob = fmt === 'pdf' ? await buildProjectPdf(report) : await buildProjectXlsx(report);
-      const filename = exportFileName(project.name, fmt);
+      let blob, zipInfo = null;
+      if (fmt === 'zip') {
+        zipInfo = await buildProjectZip(report, project);
+        blob = zipInfo.blob;
+      } else if (fmt === 'pdf') {
+        if (report.taskRows.some((t) => t.attachments.some(isImageAttachment))) exportToast('Loading image previews for the PDF…', 'busy');
+        await loadReportThumbs(report);
+        blob = await buildProjectPdf(report);
+      } else {
+        blob = await buildProjectXlsx(report);
+      }
+      const filename = fmt === 'zip' ? exportFileName(project.name, 'zip').replace(' - Task Report - ', ' - Task Report with files - ') : exportFileName(project.name, fmt);
       downloadBlob(blob, filename);
       setSync(prevSync.state === 'error' ? 'connected' : prevSync.state, prevSync.state === 'error' ? 'Connected' : prevSync.message);
-      exportToast(label + ' report downloaded: ' + filename, 'success');
+      exportToast(label + ' downloaded: ' + filename + (zipInfo && zipInfo.missing ? ' — ' + zipInfo.missing + ' file(s) could not be downloaded (see missing-files.txt)' : ''), zipInfo && zipInfo.missing ? 'error' : 'success');
       void writeAudit({
         action: 'project.export',
         entityType: 'project',
         entityId: project.id,
         entityLabel: project.name,
-        details: { format: fmt === 'pdf' ? 'PDF' : 'Excel (.xlsx)', count: report.taskRows.length, fileName: filename },
+        details: { format: fmt === 'pdf' ? 'PDF' : (fmt === 'zip' ? 'ZIP (Excel + PDF + files)' : 'Excel (.xlsx)'), count: report.taskRows.length, fileName: filename, files: zipInfo ? zipInfo.fileCount : undefined, missingFiles: zipInfo ? zipInfo.missing : undefined },
       });
     } catch (err) {
       console.error('Export failed:', err);
@@ -7727,7 +8073,8 @@
     m.innerHTML = `
       <div class="export-menu-title">Export “${escapeHtml(p.name)}”</div>
       <button type="button" role="menuitem" data-export-project="${p.id}" data-export-format="xlsx"><span class="ico xl">XLS</span><span><strong>Excel workbook</strong><small>Summary, Tasks, QA History, Attachments</small></span></button>
-      <button type="button" role="menuitem" data-export-project="${p.id}" data-export-format="pdf"><span class="ico pdf">PDF</span><span><strong>PDF report</strong><small>Printable A4 report with progress</small></span></button>
+      <button type="button" role="menuitem" data-export-project="${p.id}" data-export-format="pdf"><span class="ico pdf">PDF</span><span><strong>PDF report</strong><small>Printable A4 report with task details &amp; image previews</small></span></button>
+      <button type="button" role="menuitem" data-export-project="${p.id}" data-export-format="zip"><span class="ico zip">ZIP</span><span><strong>Export with files (ZIP)</strong><small>Excel + PDF + all attached files per task</small></span></button>
     `;
     document.body.appendChild(m);
     const r = anchor.getBoundingClientRect();
@@ -7971,6 +8318,7 @@
               <span class="export-label">Export</span>
               <button type="button" class="btn btn-ghost btn-sm export-btn" data-action="export-project" data-id="${project.id}" data-export-project="${project.id}" data-export-format="xlsx" title="Download an Excel workbook: Summary, Tasks, QA History, Attachments"><span class="ico xl" aria-hidden="true">XLS</span>Excel</button>
               <button type="button" class="btn btn-ghost btn-sm export-btn" data-action="export-project" data-id="${project.id}" data-export-project="${project.id}" data-export-format="pdf" title="Download a printable PDF report"><span class="ico pdf" aria-hidden="true">PDF</span>PDF</button>
+              <button type="button" class="btn btn-ghost btn-sm export-btn" data-action="export-project" data-id="${project.id}" data-export-project="${project.id}" data-export-format="zip" title="Download a ZIP: Excel + PDF reports and every attached file, organised per task"><span class="ico zip" aria-hidden="true">ZIP</span>With files</button>
             </div>
           </div>
         </div>
@@ -8028,6 +8376,59 @@
         render();
       });
     });
+  }
+
+  // ── Copy task details to clipboard ──
+  function taskCopyText(v) {
+    const lines = [
+      'Title: ' + (String(v.title || '').trim() || 'Untitled task'),
+      'Issue: ' + (String(v.notes || '').trim() || '—'),
+      'Due date: ' + (v.dueDate ? formatDue(v.dueDate) : 'No due date'),
+      'Status: ' + exportStatusLabel(v.status || 'pending'),
+      'Priority: ' + exportPriorityLabel(v.priority || 'medium'),
+    ];
+    return lines.join('\n');
+  }
+
+  async function copyTextToClipboard(text) {
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch { /* fall back */ }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    ta.setSelectionRange(0, text.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    ta.remove();
+    return ok;
+  }
+
+  function flashCopied(btn, ok) {
+    if (btn) {
+      btn.classList.add(ok ? 'is-copied' : 'is-copy-failed');
+      const prev = btn.getAttribute('data-tip') || '';
+      btn.setAttribute('data-tip', ok ? 'Copied!' : 'Copy failed');
+      clearTimeout(btn._copyT);
+      btn._copyT = setTimeout(() => {
+        btn.classList.remove('is-copied', 'is-copy-failed');
+        btn.setAttribute('data-tip', prev === 'Copied!' || prev === 'Copy failed' ? '' : prev);
+      }, 1600);
+    }
+    exportToast(ok ? 'Copied title, issue and due date' : 'Could not copy — your browser blocked clipboard access', ok ? 'success' : 'error');
+  }
+
+  async function copyTask(id, btn) {
+    const t = state.tasks.find((x) => x.id === id);
+    if (!t) return;
+    flashCopied(btn, await copyTextToClipboard(taskCopyText(t)));
   }
 
   const CARD_ATTACH_LIMIT = 3;
@@ -8164,6 +8565,7 @@
           ${(t.status === 'done' || qaForTask(t.id).length > 0)
             ? `<button type="button" class="btn-icon" data-action="qa-task" data-id="${t.id}" title="${t.status === 'done' ? 'Check &amp; test (QA)' : 'View QA history'}" aria-label="${t.status === 'done' ? 'Check and test' : 'View QA history'}">📋</button>`
             : `<button type="button" class="btn-icon qa-btn-disabled" disabled title="QA only when status is Done (awaiting QA)" aria-label="QA unavailable">📋</button>`}
+          <button type="button" class="btn-icon btn-copy" data-action="copy-task" data-id="${t.id}" title="Copy title, issue &amp; due date" aria-label="Copy title, issue and due date"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
           ${holdBtn}
           <button type="button" class="btn-icon" data-action="edit-task" data-id="${t.id}" title="Edit" aria-label="Edit task">✎</button>
           <button type="button" class="btn-icon danger" data-action="delete-task" data-id="${t.id}" title="Delete task" aria-label="Delete task">✕</button>
@@ -8291,6 +8693,7 @@
     if (action === 'hold-task') holdTask(id);
     if (action === 'qa-task') openQaModal(id);
     if (action === 'edit-task') editTask(id);
+    if (action === 'copy-task') copyTask(id, btn);
     if (action === 'delete-task') deleteTask(id);
     if (action === 'export-project') exportProject(id, btn.getAttribute('data-export-format'));
   });
